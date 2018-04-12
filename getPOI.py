@@ -38,6 +38,7 @@ class GetRectPoi():
         self.subRectPosCount = []       #分割rect后的 信息
         self.createTime = arrow.now().format('YYYYMMDDHHmmss')
         self.filePath = os.getcwd()  +  '\\tab\\' + self.createTime + '\\'        #拼接文件夹以当天日期命名
+        self.pois = []
 
     def add_parameters(self,params, **kwargs):      #将字典中 key  转化为 'key'　
         return params.update(kwargs)
@@ -89,20 +90,6 @@ class GetRectPoi():
             print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
             return -3
 
-    def getRectPoiNumber2(self,rect):                #分割RECT矩形,如果经纬度矩形内的POI个数大于800个 就把此矩形递归的分割成四等份,类似于四叉树,并且返回包含矩形内POI数量和矩形rect的列表
-        rectPoiCount = self.getRectPoiCount(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
-        if  not isinstance(rectPoiCount,int) :          #如果返回值为不为int型(为列表)
-            if int(rectPoiCount['count']) > 800 :       #如果返回的poi个数 大于 800
-                rects = cutRect(rect)                       #将rect分割为四等份
-                for subRect in rects :                      #递归四个子矩形rect
-                    self.getRectPoiNumber2(subRect)
-            elif int(rectPoiCount['count']) <= 800 :        #如果 返回的rect内的POI个数 小于800,
-                self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-                return self.subRectPosCount                     #返回 self.subRectPosCount
-        else :
-            print(rectPoiCount)
-            return rectPoiCount           #如果返回值为 int, 说明返回的是出错代码
-
     def getRectPoiNumber(self,rect):                #分割RECT矩形,如果经纬度矩形内的POI个数大于800个 就把此矩形递归的分割成四等份,类似于四叉树,并且返回包含矩形内POI数量和矩形rect的列表
         result = self.getPoi(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
         if  not isinstance(result,int) :          #如果返回值为不为int型(为列表)
@@ -113,15 +100,10 @@ class GetRectPoi():
             elif int(result['count']) <= 800 :        #如果 返回的rect内的POI个数 小于800,
                 rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
                 self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-                return self.subRectPosCount                     #返回 self.subRectPosCount
+                return 1                    #返回 1 表示正常
         else :
             print(result)
-            return result           #如果返回值为 int, 说明返回的是出错代码
-
-
-
-
-
+            return result           #如果返回值为 int, 说明返回的是出错代码 小于1的整数
 
     def getPoi(self,rect):                                          #返回 poi 的列表
         rectParam = {'polygon': self.rectToPolygonStr(rect)}
@@ -154,6 +136,23 @@ class GetRectPoi():
             print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
             return -3
 
+    def getPoiID(self,rect):
+        result = {}
+        if self.getRectPoiNumber(rect) == 1 :    #getRectPoiNumber()方法的返回值正常
+
+            if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[] 的元素不为0
+                for subRect in self.subRectPosCount:        #遍历每一个子矩形
+                    notEnd = True                    #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
+                    while notEnd:
+                        result = self.getPoi(subRect['rect'])           #一个result 就是一页 POI
+                        currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
+                        if (currentPagePoiNumber - 10 < 0) and  (result['counter']  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
+                            notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
+                        if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
+                            for poi in result['pois'] : #遍历每一个 POI
+                                self.pois.append(poi)
+                                print(str(poi))
+        return  self.pois
 
 
 
@@ -164,16 +163,8 @@ if __name__ == '__main__' :
     # amapKey.getKey()                #更换Key
     rect = [[107.889573, 35.269261], [108.924163, 34.250959]]
     rectPoi = GetRectPoi()
-    poiCount =  rectPoi.getRectPoiNumber(rect)      #此方法执行完返回值并不是所有分割后的 rect
+    poiCount =  rectPoi.getPoiID(rect)      #此方法执行完返回值并不是所有分割后的 rect
     print(rectPoi.subRectPosCount)                  #分割后所有的子rect 保存在 self.subRectPosCount 属性中
-
-
-
-
-
-
-
-
 
 
 
@@ -184,11 +175,30 @@ if __name__ == '__main__' :
     else:
         os.makedirs(filePath)  # 如果不存在 创建目录
 
-    newMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
-    dataSource = newMap.newFile('polygon.shp')                                    #创建文件
-    newLayer = newMap.createLayer(dataSource, fieldList)                             #创建Layer对象
+
+
+    rectMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
+    fieldList = [("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254))]     #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
+    dataSource = rectMap.newFile('rect.shp')                                    #创建文件
+    newLayer = rectMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for i, subRect in enumerate(rectPoi.subRectPosCount) :                          #循环生成 rect 的  Polygon
         ringList = [rectToPoint(subRect['rect'])]                                   #  ring的坐标对 列表
-        fieldValues = ('SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) )           #Polygon 对应的 表的值
-        newMap.createPolygon(newLayer, ringList, ('SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ))  #创建   Polygon  并添加到地图中
+        fieldValues = ['SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ]           #Polygon 对应的 表的值
+        rectMap.createPolygon(newLayer, ringList, ('SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ))  #创建   Polygon  并添加到地图中
+
+
+
+    pointMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
+
+    for fieldName in rectPoi.pois[0].keys() :
+        fieldList.append((fieldName,(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
+    dataSource = pointMap.newFile('point.shp')                                    #创建文件
+    pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
+    for poi in rectPoi.pois :
+        fieldValues = []                                        #定义(清空)字段值的列表
+        for fieldName in fieldList :                            #生成 字段值的列表
+            fieldValues.append(str(poi[fieldName]))
+        x = float(poi.locate[0])
+        y = float(poi.locate[1])
+        pointMap.createPoint(pointLayer,x,y,fieldValues)
+
