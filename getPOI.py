@@ -96,11 +96,11 @@ class GetRectPoi():
             if int(result['count']) > 800 :       #如果返回的poi个数 大于 800
                 rects = cutRect(rect)                       #将rect分割为四等份
                 for subRect in rects :                      #递归四个子矩形rect
-                    self.getRectPoiNumber(subRect)
+                    print(self.getRectPoiNumber(subRect))
             elif int(result['count']) <= 800 :        #如果 返回的rect内的POI个数 小于800,
                 rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
                 self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-                return 1                    #返回 1 表示正常
+            return 1                    #返回 1 表示正常
         else :
             print(result)
             return result           #如果返回值为 int, 说明返回的是出错代码 小于1的整数
@@ -138,20 +138,26 @@ class GetRectPoi():
 
     def getPoiID(self,rect):
         result = {}
-        if self.getRectPoiNumber(rect) == 1 :    #getRectPoiNumber()方法的返回值正常
+        result = self.getRectPoiNumber(rect)
+        if result == 1 :    #getRectPoiNumber()方法的返回值正常
 
-            if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[] 的元素不为0
+            if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[]  此列表为获取到的所有子矩形 保存的列表
                 for subRect in self.subRectPosCount:        #遍历每一个子矩形
                     notEnd = True                    #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
+                    page = 0                          #定义当前获取页索引
                     while notEnd:
+                        page = page + 1             #页数加1
+                        rectParam = {'page': str(page)}
+                        self.setParams(rectParam)  # 使用 self.setParams() 方法 更新 get()方法  'page' 的字段 的值
                         result = self.getPoi(subRect['rect'])           #一个result 就是一页 POI
                         currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
-                        if (currentPagePoiNumber - 10 < 0) and  (result['counter']  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
+                        if (currentPagePoiNumber - 10 < 0) and  (int(result['count'])  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
                             notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
                         if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
                             for poi in result['pois'] : #遍历每一个 POI
                                 self.pois.append(poi)
                                 print(str(poi))
+
         return  self.pois
 
 
@@ -161,7 +167,7 @@ if __name__ == '__main__' :
     amapKey = Keys()  # 初始化Keys 类对象
     amap_web_key = amapKey.keyCurrent  # 初始值
     # amapKey.getKey()                #更换Key
-    rect = [[107.889573, 35.269261], [108.924163, 34.250959]]
+    rect = [[108.897814,34.2752], [108.953437,34.257061]]
     rectPoi = GetRectPoi()
     poiCount =  rectPoi.getPoiID(rect)      #此方法执行完返回值并不是所有分割后的 rect
     print(rectPoi.subRectPosCount)                  #分割后所有的子rect 保存在 self.subRectPosCount 属性中
@@ -190,15 +196,16 @@ if __name__ == '__main__' :
 
     pointMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
 
-    for fieldName in rectPoi.pois[0].keys() :
+    for fieldName in list(rectPoi.pois[0].keys()) :
         fieldList.append((fieldName,(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
     dataSource = pointMap.newFile('point.shp')                                    #创建文件
     pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for poi in rectPoi.pois :
         fieldValues = []                                        #定义(清空)字段值的列表
         for fieldName in fieldList :                            #生成 字段值的列表
-            fieldValues.append(str(poi[fieldName]))
-        x = float(poi.locate[0])
-        y = float(poi.locate[1])
+            value = poi.get(fieldName[0],'')                    #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
+            fieldValues.append(value)             ####!!!!
+        x = float(poi['location'].split(',')[0])
+        y = float(poi['location'].split(',')[1])
         pointMap.createPoint(pointLayer,x,y,fieldValues)
 
