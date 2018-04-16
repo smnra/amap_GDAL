@@ -23,6 +23,6 @@ class toExcel():
             print(u"文件夹已存在:",self.filePath)                                                 #如果存在 打印路径已存在,
         else:
             os.makedirs(self.filePath)                                                           #如果不存在 创建目录
-        self.writer = pd.ExcelWriter(self.filePath + self.fileName   + '.xlsx')       #保存表格为excel      文件名称为本月起始日期_结束日期_LTE.xlsx
+        self.writer = pd.ExcelWriter(self.fileName )       #保存表格为excel      文件名称为本月起始日期_结束日期_LTE.xlsx
         self.pandasData.to_excel(self.writer,'POI数据')                                                                  #保存表格为excel
         self.writer.save()                                                                                   #保存表格为excel

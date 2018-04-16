@@ -99,7 +99,7 @@ class CreateMapFeature():
         self.newFeature = ogr.Feature(self.featureDefn)  # 创建Feature
         # 设定几何形状
         self.point = ogr.Geometry(ogr.wkbPoint)  # 创建一个点
-        self.point.AddPoint(self.x, self.y)  # 设置 point的坐标
+        self.point.AddPoint(float(self.x), float(self.y))  # 设置 point的坐标
         self.newFeature.SetGeometry(self.point)  # 设置Featur的几何形状为point
         self.setFieldValue(self.newLayer, self.fieldList, self.fieldValues)
         # 将newFeature写入 self.layer
@@ -117,7 +117,7 @@ class CreateMapFeature():
         # 设定几何形状
         self.line = ogr.Geometry(ogr.wkbLineString)  # 创建一条折线
         for self.pointPos in self.pointList :
-            self.line.AddPoint(self.pointPos[0], self.pointPos[1])  # 循环添加所有的节点
+            self.line.AddPoint(float(self.pointPos[0]), float(self.pointPos[1]))  # 循环添加所有的节点
         self.newFeature.SetGeometry(self.line)  # 设置Featur的几何形状为line
         #设定Featur某字段的数值,这里设置 index 字段的值为 12
         self.setFieldValue(self.newLayer, self.fieldList, self.fieldValues)
@@ -139,7 +139,7 @@ class CreateMapFeature():
         for i,self.ringPos in enumerate(self.ringList) :
             self.ring.append(ogr.Geometry(ogr.wkbLinearRing)) # 创建一个环 ring 并添加到列表 self.ring 中
             for self.tmpRing in self.ringPos :
-                self.ring[i].AddPoint(self.tmpRing[0], self.tmpRing[1])  #循环添加点到Ring中
+                self.ring[i].AddPoint(float(self.tmpRing[0]), float(self.tmpRing[1]))  #循环添加点到Ring中
             if self.ringPos[0] != self.ringPos[-1] : #如果ring的第一个元素和最后一个元素不相等
                 self.ring[i].CloseRings()  # 用CloseRings闭合Ring，
             self.polygon.AddGeometry(self.ring[i])   # 把环 ring添加到  polygon
