@@ -5,7 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 import  createNewDir
 
-verifyUrl = 'http://ip.chinaz.com/getip.aspx'
+verifyUrl = 'https://ditu.amap.com/detail/get/detail'
 url = 'http://www.xicidaili.com/nt/'
 headers = {'Upgrade-Insecure-Requests': '1',
            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
@@ -17,15 +17,17 @@ headers = {'Upgrade-Insecure-Requests': '1',
 
 def proxyVerify(ip, port, protocol='https'):
     # 验证代理是否有效
-    verifyUrl = 'http://ip.chinaz.com/getip.aspx'
+    verifyUrl = 'https://ditu.amap.com/detail/get/detail'
     if protocol == 'http':
-        proxies = {'http': 'http://' + ip + ':' + port}
+        proxies = {"http": "http://" + ip + ":" + port}
     else:
-        proxies = {'https': 'https://' + ip + ':' + port}
+        proxies = {"https": "https://" + ip + ":" + port}
 
     try:
-        html = requests.get(verifyUrl, timeout=10, headers=headers, proxies=proxies)
-        if html.status_code == 200:
+        s = requests.session()
+        s.proxies = proxies  # 设置http代理
+        html = s.get(verifyUrl, timeout=10, headers=headers, proxies=s.proxies)
+        if 'status' in html.text:
             return True
         else:
             return False
@@ -65,9 +67,5 @@ try:
 
 finally:
         file.close()                                                #关闭文件句柄
-
-
-
-
 
 
