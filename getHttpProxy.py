@@ -7,8 +7,8 @@ import createNewDir
 import time
 import re
 
-verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'http://ip111.cn/'  返回IP归属地的验证地址
-url = 'http://www.xicidaili.com/nn/'
+verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'https://pv.sohu.com/cityjson'  返回IP归属地的验证地址
+url = 'http://www.xicidaili.com/nt/'
 headers = {'Upgrade-Insecure-Requests': '1',
            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -19,7 +19,7 @@ headers = {'Upgrade-Insecure-Requests': '1',
 def proxyVerify(ip, port, protocol='https'):
     # 验证代理是否有效
     # verifyUrl = 'https://ditu.amap.com/detail/get/detail'       #高德地图验证  存在字符串 'status'
-    verifyUrl = 'http://ip111.cn/'           # 获取ip归属地验证   存在字符串 'ip'
+    verifyUrl = 'http://whois.pconline.com.cn/'           # 获取ip归属地验证   存在字符串 'ip'
 
     if protocol.lower() == 'http':
         proxies = {"http": "http://" + ip + ":" + port}
@@ -30,12 +30,12 @@ def proxyVerify(ip, port, protocol='https'):
         s = requests.session()                                      # 创建 session
         s.proxies = proxies  # 设置http代理                             #设置 session proxies 代理
         html = s.get(verifyUrl, timeout=10, headers=headers)            #get() 方法 打开 verifyUrl
-        if 'IP111'  in html.text:                                          #如果返回的text中存在 字符串 'cip'
-            matchObj = re.match(r'.*\n([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}) ([A-Z][A-z]+? / [A-Z][A-z]+?)\n', html.text, re.DOTALL | re.I)         # 定义一个正则表达式对象用来提取 ip 和地址   re.DOTALL  多行匹配   re.I大小写不敏感
+        if 'X-Forwarded-For' in html.text:                                          #如果返回的text中存在 字符串 'cip'
+            matchObj = re.match(r'.*\t\t位置：(.*?)\r\n.*X-Real-IP=(.*?)\n', html.text, re.DOTALL | re.I)         # 定义一个正则表达式对象用来提取 ip 和地址   re.DOTALL  多行匹配   re.I大小写不敏感
             address = matchObj.group(1)                                #匹配 地址信息
             proxyIp = matchObj.group(2)                                 #匹配 IP
             delay =  html.elapsed.total_seconds()                       #打开网页所用时间
-            print(proxyIp , address , str(delay) + '秒')                             #
+            print(proxyIp , address , delay)                             #
             return html.elapsed.total_seconds()                            #返回 打开网页的时间
         else:
             return False                                                   #不存在就返回False
@@ -100,7 +100,7 @@ for i in range(1,31) :
         time.sleep(3)
 
     #finally:
-file.close()                                                #关闭文件句柄
+    #        file.close()                                                #关闭文件句柄
 
 
 

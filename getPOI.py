@@ -247,7 +247,7 @@ if __name__ == '__main__' :
 
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
 
-    proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')
+    proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块
 
     boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []
@@ -262,9 +262,9 @@ if __name__ == '__main__' :
             value = poi.get(fieldName[0],'')                    #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
             fieldValues.append(value)                           ##将value添加到fieldValues ##!!!!
         podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
-        if podId :
+        if podId :                                              #如果 podId 存在
             if getBoundCount % 30 == 0 :
-                changeProxy.ChangeProxy
+                proxyPools.changeProxyIP()                       #每30次更换一次代理
             ring = rectPoi.getPoiBound(podId)
             if isinstance(ring,list) :
                 boundMap.createPolygon(boundtLayer,[ring],fieldValues)
