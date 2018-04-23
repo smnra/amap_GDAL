@@ -26,7 +26,7 @@ class ChangeProxy():
         proxyFile.close()
 
     def changeProxyIP(self):
-        # 返回一个设置代理的 requests.session() 对象
+        # 返回一个设置代理的 requests 对象
         self.keyCurrentProxyIndex = self.keyCurrentProxyIndex - 1  # 把当前正在使用的  proxyIP 的index 减去1
 
         if self.keyCurrentProxyIndex < 0:  # 如果 当前正在使用的 proxyIP 的index 小于0
@@ -35,17 +35,17 @@ class ChangeProxy():
 
         if self.cruuentProxyIP[2].lower() in  ['http', 'https']:
             self.proxies = {self.cruuentProxyIP[2].lower() : self.cruuentProxyIP[2].lower()+ "://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1]}   #设置类的 .session.proxies 属性
-            prosySession = requests.session()  # 创建 session
-            prosySession.proxies = self.proxies  # 设置http代理                             #设置 session proxies 代理
-            return prosySession                                                             #返回一个设置代理的session 对象
+            proxyRequest = requests.session()  # 创建 session
+            proxyRequest.proxies = self.proxies  # 设置http代理                             #设置 session proxies 代理
+            return proxyRequest                                                             #返回一个设置代理的 Requests 对象
         else :
             self.changeProxyIP()                                                            #迭代本方法
 
 
 if __name__ == '__main__' :
     proxyFileName = r'./proxy.txt'
-    proxySession = ChangeProxy(proxyFileName)                #初始化ChangeProxy 类对象
-    s = proxySession.changeProxyIP()               #返回一个设置代理的 requests.session() 对象
+    proxyRequest = ChangeProxy(proxyFileName)                #初始化ChangeProxy 类对象
+    s = proxyRequest.changeProxyIP()               #返回一个设置代理的 requests 实例对象对象
 
     html = s.get('http://ip.chinaz.com/getip.aspx', timeout=10)
 
