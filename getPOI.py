@@ -162,15 +162,17 @@ class GetRectPoi():
                         rectParam = {'page': str(page)}
                         self.setParams(rectParam)  # 使用 self.setParams() 方法 更新 get()方法  'page' 的字段 的值
                         result = self.getPoi(subRect['rect'])           #一个result 就是一页 POI
-                        currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
-                        if (currentPagePoiNumber - 10 < 0) and  (int(result['count'])  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
-                            notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
-                        if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
-                            for poi in result['pois'] : #遍历每一个 POI
-                                self.pois.append(poi)
-                                print(str(poi))
-        return  self.pois
+                        if not isinstance(result,int) :                 #如果返回的result 为int 类型 则为出错
+                            currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
+                            if (currentPagePoiNumber - 10 < 0) and  (int(result['count'])  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
+                                notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
+                            if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
+                                for poi in result['pois'] : #遍历每一个 POI
+                                    self.pois.append(poi)
+                                    print(str(poi))
 
+
+        return  self.pois
 
     def getPoiBound(self,poiID) :
         #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
@@ -182,7 +184,7 @@ class GetRectPoi():
                 if 'mining_shape' in resultJson.get('data','').get('spec','') :
                     strRing = resultJson.get('data','').get('spec','').get('mining_shape','').get('shape','')
                     if len(strRing) > 0 :
-                        pointList = strRing.split(';')                      #使用';'  把pointList 分割为列表,
+                        pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
                         ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
                         return ring
                     else:
@@ -214,17 +216,6 @@ class GetRectPoi():
             print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
             return -3
 
-    def toExcel(self,fileName,data):
-        #将POI数据心如excel表格
-        WriteToExcel.toExcel(fileName,rectPoi.pois)
-        print(fileName)
-
-
-
-
-
-
-
 
 
 
@@ -244,12 +235,11 @@ if __name__ == '__main__' :
         os.makedirs(filePath)  # 如果不存在 创建目录
 
 
-
     rectPoi = GetRectPoi()      #实例化对象
-    print(rectPoi.getPoiBound('B001D09SOI'))
+    #print(rectPoi.getPoiBound('B001D09SOI'))
     poiCount =  rectPoi.getPoiID(rect)      #此方法执行完将返回所有分割后的 rect 的 POI信息 将保存在self.pois 列表中
     print(rectPoi.subRectPosCount)                  #分割后所有的子rect 保存在 self.subRectPosCount 属性中
-    rectPoi.toExcel(filePath.join('poi.xlsx'), rectPoi.pois)
+    # WriteToExcel.toExcel(filePath.join('poi.xlsx'), rectPoi.pois)
 
 
 
