@@ -174,11 +174,11 @@ class GetRectPoi():
 
         return  self.pois
 
-    def getPoiBound(self,poiID) :
+    def getPoiBound(self,poiID,proxyRequest) :
         #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
         params = {'id' : poiID }
         try:
-            result = requests.get(self.boundURL, params = params, timeout = 10, headers = GetRectPoi.headers)
+            result = proxyRequest.get(self.boundURL, params = params, timeout = 10, headers = GetRectPoi.headers)
             if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
                 resultJson = result.json()                    #得到json格式的数据
                 if 'mining_shape' in resultJson.get('data','').get('spec','') :
@@ -264,8 +264,8 @@ if __name__ == '__main__' :
         podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
         if podId :                                              #如果 podId 存在
             if getBoundCount % 30 == 0 :
-                proxyPools.changeProxyIP()                       #每30次更换一次代理
-            ring = rectPoi.getPoiBound(podId)
+                proxyRequest = proxyPools.changeProxyIP()        #每30次更换一次代理
+            ring = rectPoi.getPoiBound(podId,proxyRequest)
             if isinstance(ring,list) :
                 boundMap.createPolygon(boundtLayer,[ring],fieldValues)
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
