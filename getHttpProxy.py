@@ -7,8 +7,8 @@ import createNewDir
 import time
 import re
 
-verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'https://pv.sohu.com/cityjson'  返回IP归属地的验证地址
-url = 'http://www.xicidaili.com/nt/'
+verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'http://ip111.cn/'  返回IP归属地的验证地址
+url = 'http://www.xicidaili.com/nn/'
 headers = {'Upgrade-Insecure-Requests': '1',
            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -100,7 +100,7 @@ for i in range(1,31) :
         time.sleep(3)
 
     #finally:
-    #        file.close()                                                #关闭文件句柄
+file.close()                                                #关闭文件句柄
 
 
 
