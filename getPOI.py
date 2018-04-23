@@ -7,7 +7,7 @@ from cutRect import cutRect, rectToPoint
 import createShapeFile
 import arrow, os
 import WriteToExcel
-
+import changeProxy
 
 poi_search_url = "http://restapi.amap.com/v3/place/text"
 poi_boundary_url = "https://ditu.amap.com/detail/get/detail"
@@ -226,6 +226,8 @@ if __name__ == '__main__' :
     amap_web_key = amapKey.keyCurrent  # 初始值
     # amapKey.getKey()                #更换Key
     rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表
+    getBoundCount = 0                                           #amap 初步计算 一个ip请求30 个 bound 后 ,再取出的 bound值  就完全错乱的 或者说加密了, 此变量就是为了计数
+
 
     createTime = arrow.now().format('YYYYMMDDHHmmss')           #创建要保存数据的文件夹
     filePath = os.getcwd() + '\\tab\\' + createTime + '\\'  # 拼接文件夹以当天日期命名
@@ -244,6 +246,9 @@ if __name__ == '__main__' :
 
 
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
+
+    proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')
+
     boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []
     ring = []
@@ -258,6 +263,8 @@ if __name__ == '__main__' :
             fieldValues.append(value)                           ##将value添加到fieldValues ##!!!!
         podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
         if podId :
+            if getBoundCount % 30 == 0 :
+                changeProxy.ChangeProxy
             ring = rectPoi.getPoiBound(podId)
             if isinstance(ring,list) :
                 boundMap.createPolygon(boundtLayer,[ring],fieldValues)
