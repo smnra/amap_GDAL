@@ -82,7 +82,7 @@ for i in range(1,31) :
                 port = tr.contents[5].string            # 端口
                 protocol = tr.contents[11].string        # 协议 'http'  或者  'https'
                 if proxyVerify(ip, port, protocol)  :
-                    ipPort = ip + ':' + port + '\n'     #如果代理可用 则 把此代理  添加到proxyList 列表
+                    ipPort = ip + ',' + port +  ',' + protocol + '\n'     #如果代理可用 则 把此代理  添加到proxyList 列表
                     #print(ipPort.replace('\n', ''))
                     proxyList.append(ipPort)
 

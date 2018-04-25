@@ -8,6 +8,8 @@ import createShapeFile
 import arrow, os
 import WriteToExcel
 import changeProxy
+import geoOperation
+
 
 poi_search_url = "http://restapi.amap.com/v3/place/text"
 poi_boundary_url = "https://ditu.amap.com/detail/get/detail"
@@ -170,8 +172,6 @@ class GetRectPoi():
                                 for poi in result['pois'] : #遍历每一个 POI
                                     self.pois.append(poi)
                                     print(str(poi))
-
-
         return  self.pois
 
     def getPoiBound(self,poiID,proxyRequest) :
@@ -186,7 +186,11 @@ class GetRectPoi():
                     if len(strRing) > 0 :
                         pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
                         ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
-                        return ring
+                        if geoOperation.isInvalidBound(ring):               #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
+                            changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+                            return self.getPoiBound(poiID, changeProxyRequest)  # 暂停120秒后 迭代 本函数
+                        else :
+                            return ring                                  # 没有交叉  则 返回 ring
                     else:
                         return -4
                 else:
@@ -194,7 +198,7 @@ class GetRectPoi():
             elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
                 print('too fast, 120s retry!')
                 time.sleep(120)                                #暂停120秒后 迭代 本函数
-                return self.getPoiBound(poiID)             #暂停120秒后 迭代 本函数
+                return self.getPoiBound(poiID, proxyRequest)             #暂停120秒后 迭代 本函数
             elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
                 print('Not found this id!')
                 time.sleep(1)  # 暂停1秒
@@ -203,12 +207,14 @@ class GetRectPoi():
                 print('invalid key, 3s retry!')             #暂停3秒
                 time.sleep(3)
                 self.setParams({'key': amapKey.getKey()})      #更换key
-                return self.getPoiBound(poiID)             # 迭代 本函数
+                return self.getPoiBound(poiID, proxyRequest)             # 迭代 本函数
             else :
                 return -7
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
-            return -1
+            changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+            return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
+            # return -1
         except requests.exceptions.ChunkedEncodingError:
             print('ChunkedEncodingError -- please wait 3 seconds')
             return -2
@@ -225,7 +231,9 @@ if __name__ == '__main__' :
     amapKey = Keys()  # 初始化Keys 类对象
     amap_web_key = amapKey.keyCurrent  # 初始值
     # amapKey.getKey()                #更换Key
-    rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表
+
+    rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]
+    #rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
     getBoundCount = 0                                           #amap 初步计算 一个ip请求30 个 bound 后 ,再取出的 bound值  就完全错乱的 或者说加密了, 此变量就是为了计数
 
 
