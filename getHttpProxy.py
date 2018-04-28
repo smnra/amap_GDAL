@@ -22,9 +22,8 @@ def proxyVerify(ip, port, protocol='https'):
     verifyUrl = 'http://whois.pconline.com.cn/'           # 获取ip归属地验证   存在字符串 'ip'
 
     if protocol.lower() == 'http':
-        proxies = {"http": "http://" + ip + ":" + port}
-    else:
-        proxies = {"https": "https://" + ip + ":" + port}
+        proxies = {"http": "http://" + ip + ":" + port ,
+                   "https": "https://" + ip + ":" + port}
 
     try:
         s = requests.session()                                      # 创建 session

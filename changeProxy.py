@@ -34,7 +34,8 @@ class ChangeProxy():
         self.cruuentProxyIP = self.proxyList[self.keyCurrentProxyIndex].split(',')  # 获取 keyCurrentProxyIndex 为 列表中的 当前正在使用index对应的 proxyIP
 
         if self.cruuentProxyIP[2].lower() in  ['http', 'https']:
-            self.proxies = {self.cruuentProxyIP[2].lower() : self.cruuentProxyIP[2].lower()+ "://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1]}   #设置类的 .session.proxies 属性
+            self.proxies = {"http" : "http://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1],
+                            "https": "https://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1]}   #设置类的 .session.proxies 属性
             proxyRequest = requests.session()  # 创建 session
             proxyRequest.proxies = self.proxies  # 设置http代理                             #设置 session proxies 代理
             return proxyRequest                                                             #返回一个设置代理的 Requests 对象

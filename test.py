@@ -1,52 +1,102 @@
-#!usr/bin/env python  
-#-*- coding:utf-8 _*-
+# -*- coding:UTF-8 -*-
 
-""" 
-@author:Administrator 
-@file: test.py 
-@time: 2018/04/{DAY} 
-描述: 更换一个http 代理
-
-"""
 
 import requests
-import random
+from bs4 import BeautifulSoup
+import createNewDir
+import time
+import re
+
+verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'https://pv.sohu.com/cityjson'  返回IP归属地的验证地址
+url = 'http://www.xicidaili.com/nt/'
+headers = {'Upgrade-Insecure-Requests': '1',
+           'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+           'Accept-Encoding': 'gzip, deflate, sdch, br',
+           'Accept-Language': 'zh-CN,zh;q=0.8',
+           }
+
+def proxyVerify(ip, port, protocol='https'):
+    # 验证代理是否有效
+    # verifyUrl = 'https://ditu.amap.com/detail/get/detail'       #高德地图验证  存在字符串 'status'
+    verifyUrl = 'https://ditu.amap.com/detail/get/detail'           # 获取ip归属地验证   存在字符串 'ip'
+
+    if protocol.lower() == 'http':
+        proxies = {"http": "http://" + ip + ":" + port ,
+                   "https": "https://" + ip + ":" + port}
+
+    try:
+        s = requests.session()                                      # 创建 session
+        s.proxies = proxies  # 设置http代理                             #设置 session proxies 代理
+        html = s.get(verifyUrl, timeout=10, headers=headers)            #get() 方法 打开 verifyUrl
+        if 'status' in html.text:                                          #如果返回的text中存在 字符串 'cip'
+            delay = html.elapsed.total_seconds()
+            print(s.get('http://ip.chinaz.com/getip.aspx', timeout=10, headers=headers).text , delay)                             #
+            return delay                            #返回 打开网页的时间
+        else:
+            return False                                                   #不存在就返回False
+
+    except requests.exceptions.ConnectionError:                             #捕捉异常
+        print('可能是代理不通: ConnectionError -- please wait 3 seconds')
+        return False                                                        #有异常的返回 False
+    except requests.exceptions.ChunkedEncodingError:
+        print('ChunkedEncodingError -- please wait 3 seconds')
+        return False
+    except:
+        print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
+        return False
+    finally:
+        s = None                                #复位 session s
 
 
-class ChangeProxy():
-    def __init__(self,fileName):
-        proxyFile = open(fileName,'r')               #读取打开文件句柄
-        self.proxyList = proxyFile.readlines()       #读取文件为一个list 每一行一个元素   如: '192.168.2.34,8080,https\n'
-        self.proxyList = [x.replace('\n', '') for x in self.proxyList]      #使用列表推导式删除每个元素最后面的 换行字符 '\n'
 
-        self.proxyCount = len(self.proxyList)             #计算共有多少行    多少个http proxy
-        self.keyCurrentProxyIndex = random.randint(0, self.proxyCount - 1)       #随机选取一个 proxyIP 的索引
-        self.cruuentProxyIP = self.proxyList[self.keyCurrentProxyIndex]     #当前正在使用的 proxyIP
-        print(self.cruuentProxyIP)
-        proxyFile.close()
 
-    def changeProxyIP(self):
-        # 返回一个设置代理的 requests.session() 对象
-        self.keyCurrentProxyIndex = self.keyCurrentProxyIndex - 1  # 把当前正在使用的  proxyIP 的index 减去1
 
-        if self.keyCurrentProxyIndex < 0:  # 如果 当前正在使用的 proxyIP 的index 小于0
-            self.keyCurrentProxyIndex = self.proxyCount - 1  # 则重新初始化当前正在使用的 proxyIP 的index(复位 keyCurrentProxyIndex)
-        self.cruuentProxyIP = self.proxyList[self.keyCurrentProxyIndex].split(',')  # 获取 keyCurrentProxyIndex 为 列表中的 当前正在使用index对应的 proxyIP
 
-        if self.cruuentProxyIP[2].lower() in  ['http', 'https']:
-            self.proxies = {self.cruuentProxyIP[2].lower() : self.cruuentProxyIP[2].lower()+ "://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1]}   #设置类的 .session.proxies 属性
-            prosySession = requests.session()  # 创建 session
-            prosySession.proxies = self.proxies  # 设置http代理                             #设置 session proxies 代理
-            return prosySession                                                             #返回一个设置代理的session 对象
+
+i = 1
+filePath = createNewDir.createNewDir()
+file = open(filePath + 'ip.txt', 'a+', encoding='utf-8')
+
+
+for i in range(1,31) :
+    try:
+        html = requests.get(url + str(i), timeout = 10, headers = headers)                #获取url 网址的网页html
+        proxyList = []
+        ipList = []
+        table = []
+        if html.status_code == 200:
+            soup = BeautifulSoup(html.text, 'html.parser')              #把html 字符串实例化为BeautifulSoup 对象
+            ipList = soup.select('#ip_list')                            #返回 id 为 'ip_list' 的 所有节点
+            table = ipList[0].contents                                 #返回子节点列表
         else :
-            self.changeProxyIP()                                                            #迭代本方法
+            break
+
+        for tr in table:
+            if tr.string == None  and tr.contents[3].string != 'IP地址':                                       #如果tr有子元素 则 tr.string 的值为None  否则 tr.string 为 标签的 text   并且 不是表头 (不包含'IP地址')
+                ip = tr.contents[3].string              #ip地址
+                port = tr.contents[5].string            # 端口
+                protocol = tr.contents[11].string        # 协议 'http'  或者  'https'
+                if proxyVerify(ip, port, protocol)  :
+                    ipPort = ip + ',' + port +  ',' + protocol + '\n'     #如果代理可用 则 把此代理  添加到proxyList 列表
+                    #print(ipPort.replace('\n', ''))
+                    proxyList.append(ipPort)
+
+        file.writelines(proxyList)                                 #把列表写入文件 file 缓冲区
+        file.flush()                                            # 保存缓冲区到文件中
+
+    except requests.exceptions.ConnectionError:
+        print('ConnectionError -- please wait 3 seconds')
+        time.sleep(3)
+    except requests.exceptions.ChunkedEncodingError:
+        print('ChunkedEncodingError -- please wait 3 seconds')
+        time.sleep(3)
+    except:
+        print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
+        time.sleep(3)
+
+    #finally:
+    #        file.close()                                                #关闭文件句柄
 
 
-if __name__ == '__main__' :
-    proxyFileName = r'./proxy.txt'
-    proxySession = ChangeProxy(proxyFileName)                #初始化ChangeProxy 类对象
-    s = proxySession.changeProxyIP()               #返回一个设置代理的 requests.session() 对象
 
-    html = s.get('http://ip.chinaz.com/getip.aspx', timeout=10)
-
-    print(html.text)
