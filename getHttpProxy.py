@@ -1,5 +1,5 @@
 # -*- coding:UTF-8 -*-
-
+#获取西刺 代理网站 的 国内http 代理 列表
 
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +8,7 @@ import time
 import re
 
 verifyUrl = 'https://ditu.amap.com/detail/get/detail'               #高德地图 验证连通性url              'https://pv.sohu.com/cityjson'  返回IP归属地的验证地址
-url = 'http://www.xicidaili.com/nt/'
+url = 'http://www.xicidaili.com/wt/'
 headers = {'Upgrade-Insecure-Requests': '1',
            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -34,7 +34,7 @@ def proxyVerify(ip, port, protocol='https'):
             address = matchObj.group(1)                                #匹配 地址信息
             proxyIp = matchObj.group(2)                                 #匹配 IP
             delay =  html.elapsed.total_seconds()                       #打开网页所用时间
-            print(proxyIp , address , delay)                             #
+            print(proxyIp, port , address , delay)                             #
             return html.elapsed.total_seconds()                            #返回 打开网页的时间
         else:
             return False                                                   #不存在就返回False
@@ -62,7 +62,7 @@ filePath = createNewDir.createNewDir()
 file = open(filePath + 'ip.txt', 'a+', encoding='utf-8')
 
 
-for i in range(1,31) :
+for i in range(1,11) :
     try:
         html = requests.get(url + str(i), timeout = 10, headers = headers)                #获取url 网址的网页html
         proxyList = []
