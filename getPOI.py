@@ -9,10 +9,13 @@ import arrow, os
 import WriteToExcel
 import changeProxy
 import geoOperation
+import getProxyFromProxyPools
+
 
 
 poi_search_url = "http://restapi.amap.com/v3/place/text"
-poi_boundary_url = "https://ditu.amap.com/detail/get/detail"
+#poi_boundary_url = "https://ditu.amap.com/detail/get/detail"
+poi_boundary_url = "https://www.amap.com/detail/get/detail"
 url = 'http://restapi.amap.com/v3/place/polygon'
 
 
@@ -24,12 +27,33 @@ class GetRectPoi():
     # extensions 表示 是要获取基本POI  还是全部POI  值为 'base' 或  'all'
     # offset 为 每一页返回的POI 的个数 建议不超过15个 10 个最好 值为 '10'
     # page 为页数  '1'
+
+    headers = { 'Accept': '*/*',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+                'amapuuid': 'f0eb8c88-381f-42e8-bad7-84c2b02182ba',
+                'Connection': 'keep-alive',
+                'Cookie': 'guid=d328-93e9-ab2c-8c2e; _uab_collina=152386621543970113277911; key=bfe31f4e0fb231d29e1d3ce951e2c780; isg=BBcXOj6rAYFaHYU2AxDe-SCKpothXOu-qT4PfmlEM-ZNmDfacSx7DtW6_jiGa8M2',
+                'DNT': '1',
+                'Host': 'www.amap.com',
+                'Referer': 'https://www.amap.com/place/B001D14VWT',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162',
+                'X-Requested-With': 'XMLHttpRequest'
+
+                }
+
+
+
+
+    '''
     headers = {'Upgrade-Insecure-Requests': '1',
                'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                'Accept-Encoding': 'gzip, deflate, sdch, br',
                'Accept-Language': 'zh-CN,zh;q=0.8',
                }
+    '''
+
     def __init__(self):
         self.sourceRect = ''          #定义源矩形的对象坐标
         self.url = 'http://restapi.amap.com/v3/place/polygon'               #获取POI的 url
@@ -186,9 +210,10 @@ class GetRectPoi():
                     if len(strRing) > 0 :
                         pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
                         ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
-                        if geoOperation.isInvalidBound(ring):               #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
+                        polygon = geoOperation.Polygon(ring)                         #实例化 geoOperation 对象
+                        if polygon.isInvalidBound(ring) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
                             changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
-                            return self.getPoiBound(poiID, changeProxyRequest)  # 暂停120秒后 迭代 本函数
+                            return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
                         else :
                             return ring                                  # 没有交叉  则 返回 ring
                     else:
@@ -197,7 +222,7 @@ class GetRectPoi():
                     return -5
             elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
                 print('too fast, 120s retry!')
-                time.sleep(120)                                #暂停120秒后 迭代 本函数
+                time.sleep(1)                                #暂停120秒后 迭代 本函数
                 return self.getPoiBound(poiID, proxyRequest)             #暂停120秒后 迭代 本函数
             elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
                 print('Not found this id!')
@@ -205,14 +230,15 @@ class GetRectPoi():
                 return -6
             elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
                 print('invalid key, 3s retry!')             #暂停3秒
-                time.sleep(3)
+                time.sleep(1)
                 self.setParams({'key': amapKey.getKey()})      #更换key
                 return self.getPoiBound(poiID, proxyRequest)             # 迭代 本函数
             else :
                 return -7
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
-            changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+            time.sleep(1)
+            changeProxyRequest = proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
             return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
             # return -1
         except requests.exceptions.ChunkedEncodingError:
@@ -223,7 +249,12 @@ class GetRectPoi():
             return -3
 
 
-
+    def isInvalidBound(self, ring, center):
+        polygon  = geoOperation.Polygon(ring)
+        if center == polygon.getCenter():
+            return True
+        else:
+            return False
 
 
 
@@ -255,7 +286,8 @@ if __name__ == '__main__' :
 
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
 
-    proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块
+    # proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块 从 ./proxy.txt 文件读取
+    proxyPools = getProxyFromProxyPools.ChangeProxy()                              #从 代理池 获取一个 代理ip
 
     boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []

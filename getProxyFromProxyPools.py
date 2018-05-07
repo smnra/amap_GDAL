@@ -20,7 +20,7 @@ class ChangeProxy():
         print(self.cruuentProxyIP)
 
     def getProxy(self):
-        proxy =  requests.get("http://123.207.35.36:5010/get/").content.decode('utf-8').split(':')
+        proxy =  requests.get("http://127.0.0.1:5010/get/").content.decode('utf-8').split(':')
         return  proxy
 
     def changeProxyIP(self):
@@ -56,19 +56,3 @@ if __name__ == '__main__' :
 
 
 
-
-
-import requests
-
-def get_proxy():
-    proxy = []
-    return requests.get("http://123.207.35.36:5010/get/").content
-
-def delete_proxy(proxy):
-    requests.get("http://127.0.0.1:5010/delete/?proxy={}".format(proxy))
-
-# your spider code
-
-if __name__ == '__main__':
-    proxy = get_proxy()
-    print(proxy)

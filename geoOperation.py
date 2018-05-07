@@ -66,6 +66,7 @@ class Polygon() :
         # 根据 polygon 的中心的来判断 amap的 建筑物边界是否错乱
         # ring  为组成多边形的点的坐标列表 如 :[(0, 0), (0, 10), (10, 10), (10, 0)]
         # center 为建筑物边界的中心点.
+        self.ringList = ringList
         self.polygon = ogr.Geometry(ogr.wkbPolygon)  # 创建多边形
         self.ring = ogr.Geometry(ogr.wkbLinearRing)  # 创建一个环 ring
         for tmpRing in ringList:
@@ -84,8 +85,37 @@ class Polygon() :
         center = [round(center.GetPoint()[0],6),round(center.GetPoint()[1],6)]
         return center
 
+    def isLineCrosses(self):
+        # 根据传入的列表  创建相邻两个元素的 直线(也就是 多边形的每一条边), 添加到 lines 列表中 ,再分别判断这些直线是否 交叉 Crosses
+        lines = []
+        for i in range(len(self.ringList) - 1):
+            line = ogr.Geometry(ogr.wkbLineString)  # 创建一条折线
+            line.AddPoint(float(self.ringList[i][0]), float(self.ringList[i][1]))  # 直线的第一个点
+            line.AddPoint(float(self.ringList[i + 1][0]), float(self.ringList[i + 1][1]))  # 直线的第二个点
+            lines.append(line)  # 添加到列表中
+        line = ogr.Geometry(ogr.wkbLineString)  # 创建最后一个点和第一个点的直线
+        line.AddPoint(float(self.ringList[-1][0]), float(self.ringList[-1][1]))
+        line.AddPoint(float(self.ringList[0][0]), float(self.ringList[0][1]))
+        lines.append(line)
 
+        for i in range(len(lines)):  # 遍历每一条直线
+            for j in range(i, len(lines)):
+                if lines[i].Crosses(lines[j]):  # 判断其他直线与这条直线是否交叉
+                    return True  # 如果交叉 返回True
+        return False  # 默认返回False
 
+    def isInvalidBound(self,center):
+        #center 为amap 上获取到的 mining_shape 的 中心点的坐标
+        #self.center 为从polygon 计算出的 中心点的坐标
+        #本方法先判断 ring组成的 polygon 的各个直线相互之间没有 Crosses,再判断 经过计算的 center的 坐标 和  传入的参数的 center 的坐标 之差 小于 0.000001 则认为 这个 polygon 是有效的  没有错乱的
+        if self.isLineCrosses() :
+            self.center = self.getCenter()          #计算polygon的 中心点的坐标
+            if abs(self.center[0] - float([0])) < 0.000001 and abs(self.center[1] - float([1])) < 0.000001 :   #经过计算的 center的 坐标 和  传入的参数的 center 的坐标 之差 小于 0.000001
+                return True                                                                                   #返回True
+            else :
+                return False
+        else:
+            return False
 
 
 if __name__ =='__main__':
@@ -124,6 +154,8 @@ if __name__ =='__main__':
     center = tmpPolygon.getCenter()
     print(center)
 
+    if tmpPolygon.isLineCrosses():
+        print('This polygon\'s  lines Not Crosses!')
 
 
 
