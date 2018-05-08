@@ -77,7 +77,8 @@ class GetRectPoi():
 
                    }
 
-
+        self.proxyPools = getProxyFromProxyPools.ChangeProxy()                              #实例化代理池类
+        self.amapKey = Keys()                                                                    # 实例化 Keys 类对象
         self.boundURL = 'https://www.amap.com/detail/get/detail'           #根据ID获取 bound的url
         self.boundURLParams = {'id' : ''}                                       #self.boundURL的参数
 
@@ -134,7 +135,7 @@ class GetRectPoi():
             elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
                 print('invalid key, 3s retry!')             #暂停3秒
                 time.sleep(3)
-                self.setParams({'key': amapKey.getKey()})      #更换key
+                self.setParams({'key': self.amapKey.getKey()})      #更换key
                 return self.getRectPoiCount(rect)             # 迭代 本函数
             else :
                 return 0
@@ -154,11 +155,11 @@ class GetRectPoi():
         # 并且将包含矩形内POI数量和矩形rect的列表 保存在self.subRectPosCount列表中
         result = self.getPoi(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
         if  not isinstance(result,int) :          #如果返回值为不为int型(为列表)
-            if int(result['count']) > 800 :       #如果返回的poi个数 大于 800
+            if int(result['count']) > 500 :       #如果返回的poi个数 大于 800
                 rects = cutRect(rect)                       #将rect分割为四等份
                 for subRect in rects :                      #递归四个子矩形rect
                     print(self.getRectPoiNumber(subRect))
-            elif int(result['count']) <= 800 :        #如果 返回的rect内的POI个数 小于800,
+            elif int(result['count']) <= 500 :        #如果 返回的rect内的POI个数 小于800,
                 rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
                 self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
             return 1                    #返回 1 表示正常
@@ -184,7 +185,7 @@ class GetRectPoi():
             elif result.json()['status'] == '0':  # 在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
                 print('invalid key, 3s retry!')  # 暂停3秒
                 time.sleep(3)
-                self.setParams({'key': amapKey.getKey()})  # 更换key
+                self.setParams({'key': self.amapKey.getKey()})  # 更换key
                 return self.getPoi(rect)  # 迭代 本函数
             else:
                 return 0
@@ -241,7 +242,7 @@ class GetRectPoi():
                         center = resultJson.get('data','').get('spec','').get('mining_shape','').get('center','')          #获得中心点的坐标 , 默认为 ''
                         if polygon.isInvalidBound(center) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
                             print('Polygon\'s line is Crosses, change a http proxy to retry!')
-                            changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+                            changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
                             return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
                         else :
                             print(poiID + u' 边界正常: ' + str(ring) )
@@ -254,7 +255,7 @@ class GetRectPoi():
             elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
                 print('Too fast, change a http proxy to retry!')
                 time.sleep(1)                                #暂停120秒后 迭代 本函数
-                changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+                changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
                 return self.getPoiBound(poiID, changeProxyRequest)  # 迭代 本函数
             elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
                 print('Not found this id!')
@@ -263,14 +264,14 @@ class GetRectPoi():
             elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
                 print('invalid key, 3s retry!')             #暂停3秒
                 time.sleep(1)
-                self.setParams({'key': amapKey.getKey()})      #更换key
+                self.setParams({'key': self.amapKey.getKey()})      #更换key
                 return self.getPoiBound(poiID, proxyRequest)             # 迭代 本函数
             else :
                 return -7
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
             time.sleep(1)
-            changeProxyRequest = proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
+            changeProxyRequest = self.proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
             return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
             # return -1
         except requests.exceptions.ChunkedEncodingError:
@@ -281,13 +282,15 @@ class GetRectPoi():
             return -3
 
 
-
-if __name__ == '__main__' :
-    amapKey = Keys()  # 初始化Keys 类对象
-    amap_web_key = amapKey.keyCurrent  # 初始值
+def getAmapInfo(rect) :
+    # 参数 rect 为 [[108.897814, 34.2752], [108.953437, 34.257061]]   为要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
+    # proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块 从 ./proxy.txt 文件读取
+    proxyPools = getProxyFromProxyPools.ChangeProxy()                              #实例化代理池类
+    #amapKey = Keys()  # 初始化Keys 类对象
+    #amap_web_key = amapKey.keyCurrent  # 初始值 Key列表
     # amapKey.getKey()                #更换Key
 
-    rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]
+    #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]
     #rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
     getBoundCount = 0                                           #amap 初步计算 一个ip请求30 个 bound 后 ,再取出的 bound值  就完全错乱的 或者说加密了, 此变量就是为了计数
 
@@ -310,8 +313,7 @@ if __name__ == '__main__' :
 
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
 
-    # proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块 从 ./proxy.txt 文件读取
-    proxyPools = getProxyFromProxyPools.ChangeProxy()                              #从 代理池 获取一个 代理ip
+
 
     boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []
@@ -321,7 +323,7 @@ if __name__ == '__main__' :
         fieldList.append(fieldName[:10],(4,254))                 #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度 , fieldName[:10]取fieldName的前十个字符
     '''
     fieldList = [(fieldName[:10],(4,254)) for fieldName in list(rectPoi.pois[0].keys())]           #用列表推导式生成fieldList 可以代替上面的 for 循环
-
+    fieldList = sorted(fieldList)           # fieldList 排序
     dataSource = boundMap.newFile('bound.shp')                                    #创建文件
     boundtLayer = boundMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for poi in rectPoi.pois :
@@ -370,6 +372,8 @@ if __name__ == '__main__' :
     fieldList = []
     for fieldName in list(rectPoi.pois[0].keys()) :
         fieldList.append((fieldName[:10],(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
+    fieldList = sorted(fieldList)                                   # fieldList 排序
+
     dataSource = pointMap.newFile('point.shp')                                    #创建文件
     pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for poi in rectPoi.pois :
@@ -381,3 +385,13 @@ if __name__ == '__main__' :
         y = float(poi['location'].split(',')[1])
         pointMap.createPoint(pointLayer,x,y,fieldValues)
     ##########################################################以上为创建所有POI点 的 shape图层文件
+
+
+
+
+
+
+if __name__ == '__main__' :
+    #获取经纬度rect 范围内的 高德地图poi 建筑物边界 并生成shp 图形文件
+    rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
+    getAmapInfo(rect)
