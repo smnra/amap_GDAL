@@ -108,14 +108,20 @@ class Polygon() :
         #center 为amap 上获取到的 mining_shape 的 中心点的坐标
         #self.center 为从polygon 计算出的 中心点的坐标
         #本方法先判断 ring组成的 polygon 的各个直线相互之间没有 Crosses,再判断 经过计算的 center的 坐标 和  传入的参数的 center 的坐标 之差 小于 0.000001 则认为 这个 polygon 是有效的  没有错乱的
-        if self.isLineCrosses() :
-            self.center = self.getCenter()          #计算polygon的 中心点的坐标
-            if abs(self.center[0] - float([0])) < 0.000001 and abs(self.center[1] - float([1])) < 0.000001 :   #经过计算的 center的 坐标 和  传入的参数的 center 的坐标 之差 小于 0.000001
-                return True                                                                                   #返回True
-            else :
-                return False
-        else:
+        if self.isLineCrosses() :                       #如果有线段穿插 Crosses  返回 False
             return False
+        else:
+            self.center = self.getCenter()  # 计算polygon的 中心点的坐标
+            if center == '' :
+                return True                               #如果center为 '' 则 不计算 差值 直接返回 True
+            else :
+                amapCenter = [float(center.split(',')[0]), float(center.split(',')[1])]
+
+            if abs(self.center[0] - amapCenter[0]) < 0.000001 and abs(
+                    self.center[1] - amapCenter[1]) < 0.000001:  # 经过计算的 center的 坐标 和  传入的参数的 center 的坐标 之差 小于 0.000001
+                return True  # 返回True
+            else:
+                return False
 
 
 if __name__ =='__main__':

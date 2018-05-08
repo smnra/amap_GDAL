@@ -20,7 +20,7 @@ class ChangeProxy():
         print(self.cruuentProxyIP)
 
     def getProxy(self):
-        proxy =  requests.get("http://127.0.0.1:5010/get/").content.decode('utf-8').split(':')
+        proxy =  requests.get("http://123.207.35.36:5010/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get
         return  proxy
 
     def changeProxyIP(self):
@@ -32,9 +32,17 @@ class ChangeProxy():
                             "https": "https://" + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1]}   #设置类的 .session.proxies 属性
             proxyRequest = requests.session()  # 创建 session
             proxyRequest.proxies = self.proxies  # 设置http代理                             #设置 session proxies 代理
+            print(u'当前代理:' + self.cruuentProxyIP[0] + ":" + self.cruuentProxyIP[1])
             return proxyRequest                                                             #返回一个设置代理的 Requests 对象
         else :
             self.changeProxyIP()                                                            #迭代本方法
+
+    def noProxyIP(self):
+        # 返回一个没有设置代理的 requests 对象
+        proxyRequest = requests.session()  # 创建 session
+        print(u'当前代理: 无')
+        return proxyRequest                                                             #返回一个设置代理的 Requests 对象
+
 
 
 if __name__ == '__main__' :

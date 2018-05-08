@@ -62,7 +62,23 @@ class GetRectPoi():
                           'extensions': 'all',
                           'offset': '10',
                           'page': '1' }
-        self.boundURL = 'https://ditu.amap.com/detail/get/detail'           #根据ID获取 bound的url
+
+        self.headers = {'Accept': '*/*',
+                   'Accept-Encoding': 'gzip, deflate, br',
+                   'Accept-Language': 'zh-CN,zh;q=0.9',
+                   'amapuuid': 'f0eb8c88-381f-42e8-bad7-84c2b02182ba',
+                   'Connection': 'keep-alive',
+                   'Cookie': 'guid=d328-93e9-ab2c-8c2e; _uab_collina=152386621543970113277911; key=bfe31f4e0fb231d29e1d3ce951e2c780; isg=BBcXOj6rAYFaHYU2AxDe-SCKpothXOu-qT4PfmlEM-ZNmDfacSx7DtW6_jiGa8M2',
+                   'DNT': '1',
+                   'Host': 'www.amap.com',
+                   'Referer': 'https://www.amap.com/place/B001D14VWT',
+                   'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162',
+                   'X-Requested-With': 'XMLHttpRequest'
+
+                   }
+
+
+        self.boundURL = 'https://www.amap.com/detail/get/detail'           #根据ID获取 bound的url
         self.boundURLParams = {'id' : ''}                                       #self.boundURL的参数
 
         self.subRectPosCount = []       #分割rect后的 信息
@@ -89,6 +105,15 @@ class GetRectPoi():
         for key,value in keyDict.items() :              #遍历 keyDict
             if key in self.urlParams :   #如果 keyDict 中的key 在 self.urlParams中存在,
                 self.urlParams[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
+
+    def setHeader(self,keyDict):
+        #设置requests.get() 方法 url附带的的 参数
+        for key,value in keyDict.items() :              #遍历 keyDict
+            if key in self.headers :   #如果 keyDict 中的key 在 self.urlParams中存在,
+                self.headers[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
+
+
+
 
     def getRectPoiCount(self,rect):
         #接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
@@ -178,7 +203,6 @@ class GetRectPoi():
         result = {}
         result = self.getRectPoiNumber(rect)
         if result == 1 :    #getRectPoiNumber()方法的返回值正常
-
             if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[]  此列表为获取到的所有子矩形 保存的列表
                 for subRect in self.subRectPosCount:        #遍历每一个子矩形
                     notEnd = True                    #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
@@ -199,6 +223,9 @@ class GetRectPoi():
         return  self.pois
 
     def getPoiBound(self,poiID,proxyRequest) :
+        Referer = {'Referer': 'https://www.amap.com/place/' + poiID}
+        self.setHeader(Referer)  # 使用 self.setHeader() 方法 更新  RequestHeader 中的 Referer 字段中的 poiID
+
         #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
         params = {'id' : poiID }
         try:
@@ -211,19 +238,24 @@ class GetRectPoi():
                         pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
                         ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
                         polygon = geoOperation.Polygon(ring)                         #实例化 geoOperation 对象
-                        if polygon.isInvalidBound(ring) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
+                        center = resultJson.get('data','').get('spec','').get('mining_shape','').get('center','')          #获得中心点的坐标 , 默认为 ''
+                        if polygon.isInvalidBound(center) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
+                            print('Polygon\'s line is Crosses, change a http proxy to retry!')
                             changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
                             return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
                         else :
+                            print(poiID + u' 边界正常: ' + str(ring) )
                             return ring                                  # 没有交叉  则 返回 ring
                     else:
                         return -4
                 else:
+                    print(poiID + u'此 POI 不存在 mining_shape!')
                     return -5
             elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('too fast, 120s retry!')
+                print('Too fast, change a http proxy to retry!')
                 time.sleep(1)                                #暂停120秒后 迭代 本函数
-                return self.getPoiBound(poiID, proxyRequest)             #暂停120秒后 迭代 本函数
+                changeProxyRequest = proxyPools.changeProxyIP()  # 更换一次代理
+                return self.getPoiBound(poiID, changeProxyRequest)  # 迭代 本函数
             elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
                 print('Not found this id!')
                 time.sleep(1)  # 暂停1秒
@@ -245,16 +277,8 @@ class GetRectPoi():
             print('ChunkedEncodingError -- please wait 3 seconds')
             return -2
         except:
-            print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
+            print('Unfortunitely -- An Unknow Error Happened.')
             return -3
-
-
-    def isInvalidBound(self, ring, center):
-        polygon  = geoOperation.Polygon(ring)
-        if center == polygon.getCenter():
-            return True
-        else:
-            return False
 
 
 
@@ -292,20 +316,32 @@ if __name__ == '__main__' :
     boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []
     ring = []
+    '''
     for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append((fieldName,(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
+        fieldList.append(fieldName[:10],(4,254))                 #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度 , fieldName[:10]取fieldName的前十个字符
+    '''
+    fieldList = [(fieldName[:10],(4,254)) for fieldName in list(rectPoi.pois[0].keys())]           #用列表推导式生成fieldList 可以代替上面的 for 循环
+
     dataSource = boundMap.newFile('bound.shp')                                    #创建文件
     boundtLayer = boundMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for poi in rectPoi.pois :
         fieldValues = []                                        #定义(清空)字段值的列表
-        for fieldName in fieldList :                            #生成 字段值的列表
-            value = poi.get(fieldName[0],'')                    #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
+        proxyRequest = proxyPools.noProxyIP()                   #首次传入一个无代理的 session对象实例
+
+        '''
+       for fieldName in fieldList :                            #生成 字段值的列表
+            value = str(poi.get(fieldName[0],'') )                   #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
             fieldValues.append(value)                           ##将value添加到fieldValues ##!!!!
+       '''
+        fieldValues = [str(poi.get(x[0], '')) for x in fieldList]           #用列表推导式代替上方的 for 循环 生成 fieldValues 列表
+
         podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
         if podId :                                              #如果 podId 存在
-            if getBoundCount % 30 == 0 :
+            if getBoundCount + 1 % 30 == 0 :
                 proxyRequest = proxyPools.changeProxyIP()        #每30次更换一次代理
             ring = rectPoi.getPoiBound(podId,proxyRequest)
+            time.sleep(1)
+            getBoundCount += 1
             if isinstance(ring,list) :
                 boundMap.createPolygon(boundtLayer,[ring],fieldValues)
     ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
@@ -333,7 +369,7 @@ if __name__ == '__main__' :
     pointMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
     fieldList = []
     for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append((fieldName,(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
+        fieldList.append((fieldName[:10],(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
     dataSource = pointMap.newFile('point.shp')                                    #创建文件
     pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
     for poi in rectPoi.pois :
