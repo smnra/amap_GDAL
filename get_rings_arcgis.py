@@ -132,13 +132,13 @@ class GetArcgisObgect():
                 return resultJson
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
-            return -1
+            return self.getRingJson(objectId)
         except requests.exceptions.ChunkedEncodingError:
             print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
+            return self.getRingJson(objectId)
         except:
             print('Unfortunitely -- An Unknow Error Happened.')
-            return -3
+            return self.getRingJson(objectId)
 
     def extractRingInfo(self,resultJson):
         # ringTitle = ['OBJECTID', 'Shape', 'Shape_Length', 'wkid', 'rings']
@@ -155,7 +155,6 @@ class GetArcgisObgect():
             self.rings.append(','.join(ring))
         except:
             print('Error,skip!\n',resultJson)
-            time.sleep(1)
             return 0
 
     def ringToCsv(self,fileName):
