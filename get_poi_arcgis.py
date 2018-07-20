@@ -15,7 +15,6 @@
 import requests
 import time
 import createShapeFile
-import arrow, os
 from createNewDir import createNewDir
 import geoOperation
 
@@ -114,16 +113,16 @@ class GetArcgisObgect():
                 return resultJson
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
-            return -1
+            return self.getPoiJson(objectId)
         except requests.exceptions.ChunkedEncodingError:
             print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
+            return self.getPoiJson(objectId)
         except:
             print('Unfortunitely -- An Unknow Error Happened.')
-            return -3
+            return self.getPoiJson(objectId)
 
     def extractRingInfo(self,resultJson):
-        # poiTitle = ['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y']
+        # poiTitle = ['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y','\n']
         poi = [None]*12
         try:
             poi[0] = str(resultJson['feature']['attributes']['ADDRESS']).replace(',','_')
@@ -141,13 +140,12 @@ class GetArcgisObgect():
             self.pois.append(','.join(poi))
         except:
             print('Error,skip!\n',resultJson)
-            time.sleep(2)
             return 0
 
 
     def poiToCsv(self,fileName):
         with open(fileName, 'a+') as f:
-            f.writelines(','.join(['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y']))
+            f.writelines(','.join(['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y','\n']))
             f.writelines(self.pois)
 
 
