@@ -168,7 +168,7 @@ if __name__ == '__main__' :
     # 获取arcgis 的 建筑物Feature ID 从0-10000000
     arcgisObject = GetArcgisObgect()                #初始化对类
     arcgisObject.filePath = createNewDir()  # 创建文件夹
-    for i in range(26398,964729):
+    for i in range(1,964729):
         resultJson = arcgisObject.getRingJson(i)
         if resultJson: arcgisObject.extractRingInfo(resultJson)
         #print(i)
@@ -176,3 +176,4 @@ if __name__ == '__main__' :
             arcgisObject.ringToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'rings.csv')
             arcgisObject.rings = []
             print("%s rings complated." % (str(i)))
+    arcgisObject.ringToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'rings.csv')

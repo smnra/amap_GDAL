@@ -156,7 +156,7 @@ if __name__ == '__main__' :
     # 获取arcgis 的 建筑物Feature ID 从0-10000000
     arcgisObject = GetArcgisObgect()                #初始化对类
     arcgisObject.filePath = createNewDir()  # 创建文件夹
-    for i in range(1,964729):
+    for i in range(1,571980):
         resultJson = arcgisObject.getPoiJson(i)
         if resultJson: arcgisObject.extractRingInfo(resultJson)
 
@@ -164,3 +164,4 @@ if __name__ == '__main__' :
             arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv')
             arcgisObject.pois = []
             print("%s pois complated." % (str(i)))
+    arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv')
