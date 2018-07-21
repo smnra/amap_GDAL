@@ -68,7 +68,7 @@ class GetArcgisObgect():
                           'layerDefs': '',
                           'returnGeometry': 'true',
                           'maxAllowableOffset': '',
-                          'geometryPrecision': '10',
+                          'geometryPrecision': '7',
                           'dynamicLayers': '',
                           'returnZ': 'false',
                           'returnM': 'false',
