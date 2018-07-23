@@ -141,6 +141,7 @@ class GetArcgisObgect():
             poi[10] = str(resultJson['feature']['geometry']['y'])
             poi[11] = '\n'
             self.pois.append(','.join(poi))
+            return  poi[0:-1]
         except:
             print('Error,skip!\n',resultJson)
             return 0
@@ -157,12 +158,23 @@ if __name__ == '__main__' :
     # 获取arcgis 的 建筑物Feature ID 从0-10000000
     arcgisObject = GetArcgisObgect()                #初始化对类
     arcgisObject.filePath = createNewDir()  # 创建文件夹
-    for i in range(1,571980):
+
+    pointMap = createShapeFile.CreateMapFeature(arcgisObject.filePath)  # 创建map对象
+    fieldList = [['ADDRESS'[0:8], (4,254)], ['CODE', (4,254)], ['CTYPE', (4,254)], ['LABEL', (4,254)], ['NAME', (4,254)], ['NAME_PY', (4,254)],['NTYPE', (4,254)], ['OBJECTID'[0:8], (4,254)], ['TELEPHONE'[0:8], (4,254)], ['x', (4,254)], ['y', (4,254)]]
+    # 创建字段的数据类型 列表
+    dataSource = pointMap.newFile('point.shp')  # 初始化数据源,也就是地图文件
+    pointLayer = pointMap.createLayer(dataSource, fieldList)    # 创建Layer对象
+
+
+
+    for i in range(1,571980):                      # 共 571980 个 objectid
         resultJson = arcgisObject.getPoiJson(i)
-        if resultJson: arcgisObject.extractRingInfo(resultJson)
+        if resultJson:
+            point = arcgisObject.extractRingInfo(resultJson)
+            pointMap.createPoint(pointLayer, point[-2], point[-1], point)
 
         if i%500==0:                               #每500个保存一次
-            arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv',i)
+            arcgisObject.poiToCsv(arcgisObject.filePath, 'pois.csv', i)
             arcgisObject.pois = []
             print("%s pois complated." % (str(i)))
-    arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv', i)
+    arcgisObject.poiToCsv(arcgisObject.filePath, 'pois.csv', i)

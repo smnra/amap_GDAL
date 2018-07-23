@@ -154,7 +154,7 @@ class GetArcgisObgect():
             ring[4] = ""
             for tmpRing in resultJson['results'][0]['geometry']['rings'] : # 遍历每一个 ring
                 tmpRing = [str(r[0]) + ";" + str(r[1]) for r in tmpRing]      # 把经度和纬度用 ";" 连接为字符串
-                if ring[4] :  ring[4] = ring[4] + "|"                         # 如果有多个ring, 就给上一次的ring 后面多加一个 "|"
+                if ring[4] :  ring[4] = ring[4] + "&"                         # 如果有多个ring, 就给上一次的ring 后面多加一个 "|"
                 ring[4] = ring[4]  + "|".join(tmpRing)                         # 用 "|" 连接每一个经纬度字符串对
             ring[5] = '\n'
             self.rings.append(','.join(ring))
@@ -176,29 +176,24 @@ if __name__ == '__main__' :
     arcgisObject = GetArcgisObgect()  # 初始化对类
     arcgisObject.filePath = createNewDir()  # 创建文件夹
     boundMap = createShapeFile.CreateMapFeature(arcgisObject.filePath)  # 创建map对象
-    fieldList = [['OBJECTID', (4,254)], ['Shape', (4,254)], ['Shape_Length', (4,254)], ['wkid', (4,254)], ['rings', (4,2048)]]
+    fieldList = [['OBJECTID', (4,254)], ['Shape', (4,254)], ['Shape_Length'[0:8], (4,254)], ['wkid', (4,254)], ['rings', (4,2048)]]
     # 创建字段的数据类型 列表
     dataSource = boundMap.newFile('bound.shp')  # 初始化数据源,也就是地图文件
     boundLayer = boundMap.createLayer(dataSource, fieldList)    # 创建Layer对象
 
 
-    for i in range(1, 544505):              # 根据objectid 提取建筑物边界对象的信息
+    for i in range(1, 14729):              # 根据objectid 提取建筑物边界对象的信息   共 964729  个建筑物
         resultJson = arcgisObject.getRingJson(i)     # 获取边界的Json信息,转化为字典,
         if resultJson['results'][0]['geometry']['rings'][0]:                  # 如果字典存在'ring'字段,
             ring = arcgisObject.extractRingInfo(resultJson)     #  拼接为字符串的列表 保存在 self.rings列表中 返回值 为rings的列表
             boundMap.createPolygon(boundLayer, ring['ringList'], ring['strList'])
-            print(i, ring['strList'][-1])
+            # print(i, ring['strList'][-1])
 
         if i % 500 == 0:  # 每500个保存一次
             arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv',i)
             arcgisObject.rings = []
             print("%s rings complated." % (str(i)))
     arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv',i)
-
-
-
-
-    ring = []
 
 
 
