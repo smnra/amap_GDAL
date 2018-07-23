@@ -146,9 +146,9 @@ class GetArcgisObgect():
             return 0
 
 
-    def poiToCsv(self,fileName):
+    def poiToCsv(self,fileName,i):
         with open(fileName, 'a+') as f:
-            f.writelines(','.join(['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y','\n']))
+            if i <= 500: f.writelines(','.join(['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y','\n']))
             f.writelines(self.pois)
 
 
@@ -162,7 +162,7 @@ if __name__ == '__main__' :
         if resultJson: arcgisObject.extractRingInfo(resultJson)
 
         if i%500==0:                               #每500个保存一次
-            arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv')
+            arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv',i)
             arcgisObject.pois = []
             print("%s pois complated." % (str(i)))
-    arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv')
+    arcgisObject.poiToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'pois.csv', i)

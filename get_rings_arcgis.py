@@ -163,9 +163,9 @@ class GetArcgisObgect():
             print('Error,skip!\n',resultJson)
             return 0
 
-    def ringToCsv(self,fileName):
+    def ringToCsv(self,fileName,i):
         with open(fileName, 'a+') as f:
-            f.writelines(','.join(['OBJECTID', 'Shape', 'Shape_Length', 'wkid', 'rings','\n']))
+            if i<= 500 : f.writelines(','.join(['OBJECTID', 'Shape', 'Shape_Length', 'wkid', 'rings','\n']))
             f.writelines(self.rings)
 
 
@@ -182,7 +182,7 @@ if __name__ == '__main__' :
     boundLayer = boundMap.createLayer(dataSource, fieldList)    # 创建Layer对象
 
 
-    for i in range(544000, 544505):              # 根据objectid 提取建筑物边界对象的信息
+    for i in range(1, 544505):              # 根据objectid 提取建筑物边界对象的信息
         resultJson = arcgisObject.getRingJson(i)     # 获取边界的Json信息,转化为字典,
         if resultJson['results'][0]['geometry']['rings'][0]:                  # 如果字典存在'ring'字段,
             ring = arcgisObject.extractRingInfo(resultJson)     #  拼接为字符串的列表 保存在 self.rings列表中 返回值 为rings的列表
@@ -190,10 +190,10 @@ if __name__ == '__main__' :
             print(i, ring['strList'][-1])
 
         if i % 500 == 0:  # 每500个保存一次
-            arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv')
+            arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv',i)
             arcgisObject.rings = []
             print("%s rings complated." % (str(i)))
-    arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv')
+    arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv',i)
 
 
 
