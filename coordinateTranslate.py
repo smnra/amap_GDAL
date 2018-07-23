@@ -6,6 +6,9 @@
 @file: coordinateTranslate.py 
 @time: 2018/07/{DAY} 
 描述: 用于坐标系之间的转化,比如常见的 WGS-84 , GCJ-02 ,BD-09 之间的转换
+        WGS-84 为 硬件设备GPS采集到的经纬度,与 Google Earth 和 必应卫星地图, OpenStreetMap地图 ,的经纬度是相同的
+        GCJ-02 为 高德地图,腾讯搜搜地图,灵图51ditu地图 ,谷歌电子地图,的经纬度
+        BD-09 为 百度地图经纬度体系
 
 """
 import math
@@ -77,7 +80,7 @@ class GPS():
         return {'lat': wgsLat, 'lon': wgsLon}
 
 
-    def bd_encrypt(self, gcjLat, gcjLon):
+    def gcj_bd(self, gcjLat, gcjLon):
         # GCJ-02 to BD-09
         x = gcjLon
         y = gcjLat
@@ -88,7 +91,7 @@ class GPS():
         return {'lat' : bdLat,'lon' : bdLon}
 
 
-    def bd_decrypt(self, bdLat, bdLon):
+    def bd_gcj(self, bdLat, bdLon):
         # BD-09 to GCJ-02
         x = bdLon - 0.0065
         y = bdLat - 0.006
@@ -98,6 +101,17 @@ class GPS():
         gcjLat = z * math.sin(theta)
         return {'lat' : gcjLat, 'lon' : gcjLon}
 
+    def bd_wgs(self, bdLat, bdLon):
+        # BD-09 to WGS-84
+        gcj = self.bd_gcj( bdLat, bdLon)
+        wgs = self.gcj_decrypt_exact(gcj['lat'], gcj['lon'])
+        return {'lat' : wgs['lat'], 'lon' : wgs['lon']}
+
+    def wgs_bd(self, wgsLat, wgsLon):
+        # WGS-84 to BD-09
+        gcj = self.gcj_encrypt( wgsLat, wgsLon)
+        bd = self.gcj_bd(gcj['lat'], gcj['lon'])
+        return {'lat' : bd['lat'], 'lon' : bd['lon']}
 
     def mercator_encrypt(self, wgsLat, wgsLon):
         # WGS-84 to Web mercator
@@ -156,8 +170,7 @@ if __name__=="__main__":
     result = translateGps.gcj_decrypt_exact(34.351483, 107.198623)
     print(result['lat'], ",", result['lon'],"amapjiema")
 
-    result = translateGps.gcj_decrypt_exact(34.357389, 107.205153)
-    result = translateGps.bd_decrypt(result['lat'],result['lon'])
+    result = translateGps.bd_wgs(34.357389, 107.205153)
     print(result['lat'], ",", result['lon'], "baidujiema")
 
 
