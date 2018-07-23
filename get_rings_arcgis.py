@@ -182,7 +182,7 @@ if __name__ == '__main__' :
     boundLayer = boundMap.createLayer(dataSource, fieldList)    # 创建Layer对象
 
 
-    for i in range(1, 14729):              # 根据objectid 提取建筑物边界对象的信息   共 964729  个建筑物
+    for i in range(14728, 150000):              # 根据objectid 提取建筑物边界对象的信息   共 964729  个建筑物
         resultJson = arcgisObject.getRingJson(i)     # 获取边界的Json信息,转化为字典,
         if resultJson['results'][0]['geometry']['rings'][0]:                  # 如果字典存在'ring'字段,
             ring = arcgisObject.extractRingInfo(resultJson)     #  拼接为字符串的列表 保存在 self.rings列表中 返回值 为rings的列表
