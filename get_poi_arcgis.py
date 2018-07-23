@@ -113,12 +113,15 @@ class GetArcgisObgect():
                 return resultJson
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
+            time.sleep(1)
             return self.getPoiJson(objectId)
         except requests.exceptions.ChunkedEncodingError:
             print('ChunkedEncodingError -- please wait 3 seconds')
+            time.sleep(1)
             return self.getPoiJson(objectId)
         except:
             print('Unfortunitely -- An Unknow Error Happened.')
+            time.sleep(1)
             return self.getPoiJson(objectId)
 
     def extractRingInfo(self,resultJson):

@@ -118,9 +118,9 @@ class GetArcgisObgect():
 
 
     def getRingJson(self,objectId) :
+        # 获取边界的Json信息,转化为字典,并返回
         # Referer = {'Referer': 'http://10.249.23.5:6080/arcgis/rest/services/BaseMap/SHAANXIBaseMap/MapServer/find?contains=false&searchFields=OBJECTID&sr=&layers=44&layerDefs=&returnGeometry=true&maxAllowableOffset=&geometryPrecision=8&dynamicLayers=&returnZ=false&returnM=false&gdbVersion=&f=html&searchText=' + str(objectId)}
         # self.setHeader(Referer)  # 使用 self.setHeader() 方法 更新  RequestHeader 中的 Referer 字段中的 objectId
-
         searchTextParam = {'searchText': str(objectId)}
         self.setParams(searchTextParam)  # 使用 self.setParams() 方法 更新  requests.get()方法的 附带参数字段 'searchText' 字段的值
 
@@ -130,17 +130,20 @@ class GetArcgisObgect():
             if result.status_code == 200 :             # 服务器返回状态码 status_code 为 200 则正常
                 resultJson = result.json()                    #得到json格式的数据
                 return resultJson
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError:             # 遇到错误 迭代本方法重新获取
             print('ConnectionError -- please wait 3 seconds')
             return self.getRingJson(objectId)
-        except requests.exceptions.ChunkedEncodingError:
+        except requests.exceptions.ChunkedEncodingError:         # 遇到错误 迭代本方法重新获取
             print('ChunkedEncodingError -- please wait 3 seconds')
             return self.getRingJson(objectId)
-        except:
+        except:                                                  # 遇到错误 迭代本方法重新获取
             print('Unfortunitely -- An Unknow Error Happened.')
             return self.getRingJson(objectId)
 
     def extractRingInfo(self,resultJson):
+        # 将边界的字典信息,拼接为字符串的列表 保存在 self.rings列表中
+        # 返回一个字典,key值为 "ringList" 对应的值为 ring的列表,用于 创建 Polygon 的 ring
+        # 字典,key值为 "strList" 对应的值为 字符串列表 ,用于对象的字段值.
         # ringTitle = ['OBJECTID', 'Shape', 'Shape_Length', 'wkid', 'rings']
         ring = [None]*6
         try:
@@ -148,11 +151,14 @@ class GetArcgisObgect():
             ring[1] = str(resultJson['results'][0]['attributes']['Shape'])
             ring[2] = str(resultJson['results'][0]['attributes']['Shape_Length'])
             ring[3] = str(resultJson['results'][0]['geometry']['spatialReference']['wkid'])
-            tmpRings = resultJson['results'][0]['geometry']['rings'][0]
-            tmpRings = [str(tmpRing[0]) + ";" + str(tmpRing[1]) for tmpRing in tmpRings]
-            ring[4] = "|".join(tmpRings)
+            ring[4] = ""
+            for tmpRing in resultJson['results'][0]['geometry']['rings'] : # 遍历每一个 ring
+                tmpRing = [str(r[0]) + ";" + str(r[1]) for r in tmpRing]      # 把经度和纬度用 ";" 连接为字符串
+                if ring[4] :  ring[4] = ring[4] + "|"                         # 如果有多个ring, 就给上一次的ring 后面多加一个 "|"
+                ring[4] = ring[4]  + "|".join(tmpRing)                         # 用 "|" 连接每一个经纬度字符串对
             ring[5] = '\n'
             self.rings.append(','.join(ring))
+            return {'ringList' : resultJson['results'][0]['geometry']['rings'], 'strList': ring[0:-1]}
         except:
             print('Error,skip!\n',resultJson)
             return 0
@@ -165,14 +171,39 @@ class GetArcgisObgect():
 
 if __name__ == '__main__' :
     # 获取arcgis 的 建筑物Feature ID 从0-10000000
-    arcgisObject = GetArcgisObgect()                #初始化对类
+    # 获取arcgis 的 建筑物Feature ID 从0-10000000
+
+    arcgisObject = GetArcgisObgect()  # 初始化对类
     arcgisObject.filePath = createNewDir()  # 创建文件夹
-    for i in range(1,964729):
-        resultJson = arcgisObject.getRingJson(i)
-        if resultJson: arcgisObject.extractRingInfo(resultJson)
-        #print(i)
-        if i%500==0:                               #每500个保存一次
-            arcgisObject.ringToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'rings.csv')
+    boundMap = createShapeFile.CreateMapFeature(arcgisObject.filePath)  # 创建map对象
+    fieldList = [['OBJECTID', (4,254)], ['Shape', (4,254)], ['Shape_Length', (4,254)], ['wkid', (4,254)], ['rings', (4,2048)]]
+    # 创建字段的数据类型 列表
+    dataSource = boundMap.newFile('bound.shp')  # 初始化数据源,也就是地图文件
+    boundLayer = boundMap.createLayer(dataSource, fieldList)    # 创建Layer对象
+
+
+    for i in range(544000, 544505):              # 根据objectid 提取建筑物边界对象的信息
+        resultJson = arcgisObject.getRingJson(i)     # 获取边界的Json信息,转化为字典,
+        if resultJson['results'][0]['geometry']['rings'][0]:                  # 如果字典存在'ring'字段,
+            ring = arcgisObject.extractRingInfo(resultJson)     #  拼接为字符串的列表 保存在 self.rings列表中 返回值 为rings的列表
+            boundMap.createPolygon(boundLayer, ring['ringList'], ring['strList'])
+            print(i, ring['strList'][-1])
+
+        if i % 500 == 0:  # 每500个保存一次
+            arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv')
             arcgisObject.rings = []
             print("%s rings complated." % (str(i)))
-    arcgisObject.ringToCsv('E:\\工具\\资料\\宝鸡\\研究\\Python\\python3\\amap_GDAL\\tab\\' + 'rings.csv')
+    arcgisObject.ringToCsv(arcgisObject.filePath + 'rings.csv')
+
+
+
+
+    ring = []
+
+
+
+
+
+
+
+
