@@ -96,6 +96,9 @@ class GetArcgisObgect():
         self.rings = []                  #用来保存rings数据的 列表
         self.pois = []                  #用来保存poi数据的 列表
 
+        self.translateGps = GPS()
+        self.gcj_wgs = self.translateGps.gcj_decrypt_exact
+
     def add_parameters(self,params, **kwargs):
         #将字典中 key  转化为 'key'　
         return params.update(kwargs)
@@ -152,13 +155,14 @@ class GetArcgisObgect():
             ring[2] = str(resultJson['results'][0]['attributes']['Shape_Length'])
             ring[3] = str(resultJson['results'][0]['geometry']['spatialReference']['wkid'])
             ring[4] = ""
-            for tmpRing in resultJson['results'][0]['geometry']['rings'] : # 遍历每一个 ring
+            translateRings = self.translateGPS(resultJson['results'][0]['geometry']['rings'])  # 把Rings 中的经纬度 GCJ-02 转化为 WGS-84
+            for tmpRing in translateRings : # 遍历每一个 ring
                 tmpRing = [str(r[0]) + ";" + str(r[1]) for r in tmpRing]      # 把经度和纬度用 ";" 连接为字符串
                 if ring[4] :  ring[4] = ring[4] + "&"                         # 如果有多个ring, 就给上一次的ring 后面多加一个 "|"
                 ring[4] = ring[4]  + "|".join(tmpRing)                         # 用 "|" 连接每一个经纬度字符串对
             ring[5] = '\n'
             self.rings.append(','.join(ring))
-            return {'ringList' : resultJson['results'][0]['geometry']['rings'], 'strList': ring[0:-1]}
+            return {'ringList' : translateRings, 'strList': ring[0:-1]}
         except:
             print('Error,skip!\n',resultJson)
             return 0
@@ -167,6 +171,21 @@ class GetArcgisObgect():
         with open(fileName, 'a+') as f:
             if i<= 500 : f.writelines(','.join(['OBJECTID', 'Shape', 'Shape_Length', 'wkid', 'rings','\n']))
             f.writelines(self.rings)
+
+
+    def translateGPS(self,rings):
+        # 参数为rings的经纬度列表 如 :<class 'list'>: [[[106.847484, 34.896459], [106.847566, 34.89651], [106.847605, 34.896461], [106.847523, 34.89641], [106.847484, 34.896459]]]
+        # 返回值为 GCJ-02 to WGS-84 转换结果
+        for ring in rings:
+            for r in ring:
+                gcjlon = float(r[0])
+                gcjlat = float(r[1])
+                wgs = self.translateGps.gcj_decrypt_exact(gcjlat,gcjlon)
+                r[0] = round(wgs['lon'],8)
+                r[1] = round(wgs['lat'],8)
+        return rings
+
+
 
 
 if __name__ == '__main__' :
@@ -182,7 +201,7 @@ if __name__ == '__main__' :
     boundLayer = boundMap.createLayer(dataSource, fieldList)    # 创建Layer对象
 
 
-    for i in range(14728, 150000):              # 根据objectid 提取建筑物边界对象的信息   共 964729  个建筑物
+    for i in range(1, 964729):                       # 根据objectid 提取建筑物边界对象的信息   共 964729  个建筑物
         resultJson = arcgisObject.getRingJson(i)     # 获取边界的Json信息,转化为字典,
         if resultJson['results'][0]['geometry']['rings'][0]:                  # 如果字典存在'ring'字段,
             ring = arcgisObject.extractRingInfo(resultJson)     #  拼接为字符串的列表 保存在 self.rings列表中 返回值 为rings的列表
