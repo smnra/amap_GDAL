@@ -155,11 +155,11 @@ class GetRectPoi():
         # 并且将包含矩形内POI数量和矩形rect的列表 保存在self.subRectPosCount列表中
         result = self.getPoi(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
         if  not isinstance(result,int) :          #如果返回值为不为int型(为列表)
-            if int(result['count']) > 500 :       #如果返回的poi个数 大于 800
+            if int(result['count']) > 30 :       #如果返回的poi个数 大于 800
                 rects = cutRect(rect)                       #将rect分割为四等份
                 for subRect in rects :                      #递归四个子矩形rect
                     print(self.getRectPoiNumber(subRect))
-            elif int(result['count']) <= 500 :        #如果 返回的rect内的POI个数 小于800,
+            elif int(result['count']) <= 30 :        #如果 返回的rect内的POI个数 小于800,
                 rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
                 self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
             return 1                    #返回 1 表示正常
@@ -242,8 +242,8 @@ class GetRectPoi():
                         center = resultJson.get('data','').get('spec','').get('mining_shape','').get('center','')          #获得中心点的坐标 , 默认为 ''
                         if polygon.isInvalidBound(center) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
                             print('Polygon\'s line is Crosses, change a http proxy to retry!')
-                      
-                            return self.getPoiBound(poiID, proxyRequest)  #   迭代 本函数
+                            changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
+                            return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
                         else :
                             print(poiID + u' 边界正常: ' + str(ring) )
                             return ring                                  # 没有交叉  则 返回 ring
@@ -255,7 +255,8 @@ class GetRectPoi():
             elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
                 print('Too fast, change a http proxy to retry!')
                 time.sleep(1)                                #暂停120秒后 迭代 本函数
-                return self.getPoiBound(poiID, proxyRequest)  # 迭代 本函数
+                changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
+                return self.getPoiBound(poiID, changeProxyRequest)  # 迭代 本函数
             elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
                 print('Not found this id!')
                 time.sleep(1)  # 暂停1秒
@@ -270,7 +271,8 @@ class GetRectPoi():
         except requests.exceptions.ConnectionError:
             print('ConnectionError -- please wait 3 seconds')
             time.sleep(1)
-            return self.getPoiBound(poiID, proxyRequest)         #更换代理,迭代本方法
+            changeProxyRequest = self.proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
+            return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
             # return -1
         except requests.exceptions.ChunkedEncodingError:
             print('ChunkedEncodingError -- please wait 3 seconds')
@@ -337,8 +339,8 @@ def getAmapInfo(rect) :
 
         podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
         if podId :                                              #如果 podId 存在
-            if getBoundCount + 1 % 3000 == 0 :
-                pass        #每30次更换一次代理
+            if getBoundCount + 1 % 30 == 0 :
+                proxyRequest = proxyPools.changeProxyIP()        #每30次更换一次代理
             ring = rectPoi.getPoiBound(podId,proxyRequest)
             time.sleep(1)
             getBoundCount += 1

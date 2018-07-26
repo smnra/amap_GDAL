@@ -16,7 +16,7 @@ import requests
 import time
 import createShapeFile
 from createNewDir import createNewDir
-import geoOperation
+from coordinateTranslate import *
 
 
 
@@ -76,6 +76,9 @@ class GetArcgisObgect():
         #  获取 arcgis rings 的 url
         self.poiUrl =  'http://10.249.23.5:6080/arcgis/rest/services/POI/SHAANXI/MapServer/0/57198?f=pjson'
         #  获取 arcgis poi 的 url
+
+        self.translateGps = GPS()
+        self.gcj_wgs = self.translateGps.gcj_decrypt_exact
 
         self.filePath = ''
         self.rings = []                  #用来保存rings数据的 列表
@@ -137,8 +140,10 @@ class GetArcgisObgect():
             poi[6] = str(resultJson['feature']['attributes']['NTYPE'])
             poi[7] = str(resultJson['feature']['attributes']['OBJECTID'])
             poi[8] = str(resultJson['feature']['attributes']['TELEPHONE'])
-            poi[9] = str(resultJson['feature']['geometry']['x'])
-            poi[10] = str(resultJson['feature']['geometry']['y'])
+            point = [float(resultJson['feature']['geometry']['x']), float(resultJson['feature']['geometry']['y'])]
+            point = self.translateGPSPoint(point)
+            poi[9] = str(point[0])
+            poi[10] = str(point[1])
             poi[11] = '\n'
             self.pois.append(','.join(poi))
             return  poi[0:-1]
@@ -151,6 +156,14 @@ class GetArcgisObgect():
         with open(fileName, 'a+') as f:
             if i <= 500: f.writelines(','.join(['ADDRESS', 'CODE', 'CTYPE', 'LABEL', 'NAME', 'NAME_PY', 'NTYPE', 'OBJECTID', 'TELEPHONE', 'x', 'y','\n']))
             f.writelines(self.pois)
+
+    def translateGPSPoint(self,point):
+        # 参数为list 的经纬度列表 如 :<class 'list'>: [106.847484, 34.896459]
+        #  返回值为 GCJ-02 to WGS-84 转换结果
+        wgs = self.translateGps.gcj_decrypt_exact(point[1],point[0])
+        return [wgs['lon'], wgs['lat']]
+
+
 
 
 
@@ -174,7 +187,7 @@ if __name__ == '__main__' :
             pointMap.createPoint(pointLayer, point[-2], point[-1], point)
 
         if i%500==0:                               #每500个保存一次
-            arcgisObject.poiToCsv(arcgisObject.filePath, 'pois.csv', i)
+            arcgisObject.poiToCsv(arcgisObject.filePath + 'pois.csv', i)
             arcgisObject.pois = []
             print("%s pois complated." % (str(i)))
-    arcgisObject.poiToCsv(arcgisObject.filePath, 'pois.csv', i)
+    arcgisObject.poiToCsv(arcgisObject.filePath + 'pois.csv', i)

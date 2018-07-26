@@ -155,7 +155,7 @@ class GetArcgisObgect():
             ring[2] = str(resultJson['results'][0]['attributes']['Shape_Length'])
             ring[3] = str(resultJson['results'][0]['geometry']['spatialReference']['wkid'])
             ring[4] = ""
-            translateRings = self.translateGPS(resultJson['results'][0]['geometry']['rings'])  # 把Rings 中的经纬度 GCJ-02 转化为 WGS-84
+            translateRings = self.translateGPSRing(resultJson['results'][0]['geometry']['rings'])  # 把Rings 中的经纬度 GCJ-02 转化为 WGS-84
             for tmpRing in translateRings : # 遍历每一个 ring
                 tmpRing = [str(r[0]) + ";" + str(r[1]) for r in tmpRing]      # 把经度和纬度用 ";" 连接为字符串
                 if ring[4] :  ring[4] = ring[4] + "&"                         # 如果有多个ring, 就给上一次的ring 后面多加一个 "|"
@@ -173,7 +173,7 @@ class GetArcgisObgect():
             f.writelines(self.rings)
 
 
-    def translateGPS(self,rings):
+    def translateGPSRing(self,rings):
         # 参数为rings的经纬度列表 如 :<class 'list'>: [[[106.847484, 34.896459], [106.847566, 34.89651], [106.847605, 34.896461], [106.847523, 34.89641], [106.847484, 34.896459]]]
         # 返回值为 GCJ-02 to WGS-84 转换结果
         for ring in rings:
@@ -184,6 +184,9 @@ class GetArcgisObgect():
                 r[0] = round(wgs['lon'],8)
                 r[1] = round(wgs['lat'],8)
         return rings
+
+
+
 
 
 
