@@ -5,7 +5,7 @@
 @author:Administrator 
 @file: get_rings_arcgis.py
 @time: 2018/07/{DAY}
-描述:
+描述: 采集 airgis mapserver poi 生成 shape文件 并纠偏经纬度
 
 """
 
