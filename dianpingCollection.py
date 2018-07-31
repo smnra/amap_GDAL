@@ -29,12 +29,24 @@ class getDianpingInfo():
     def __init__(self,cityName='xian'):
         # url : http://www.dianping.com/xian/ch10/r8914o2    #  最后面的o2  是结果的排序方式
 
-        self.url = 'http://www.dianping.com/xian/ch10/r8914o2'   #  最后面的o2  是结果的排序方式
+        self.headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Accept-Language': 'zh-CN,zh;q=0.9',
+                        'Cache-Control': 'max-age=0',
+                        'Connection': 'keep-alive',
+                        'Cookie': 'navCtgScroll=0; showNav=#nav-tab|0|0; _lx_utm=utm_source%3DBaidu%26utm_medium%3Dorganic; _lxsdk_cuid=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _lxsdk=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _hc.v=2195dd5e-1af7-1442-0872-b25748f68cf1.1532980446; s_ViewType=10; _dp.ac.v=0e97f4cb-0a00-4b68-a3af-42cbd882e87d; ua=13201465365; ctu=f5d5b94828db29ae10e4468d68c4987437689a310853888c076fc6a448bcd3e2; aburl=1; cy=17; cye=xian',
+                        'DNT': '1',
+                        'Host': 'www.dianping.com',
+                        'Upgrade-Insecure-Requests': '1',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
+                   }
+
+        self.cityUrl = 'http://www.dianping.com/xian'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
-        self.dataCategory = 'food'      # 要采集的
+        self.dataCategorys = {}      # 要采集的
         self.regionNavs = []     # 行政区 区县 如 科技路  的id
         self.regionNavSubs = []    # 按 行政区 的商圈 子分类  如 雁塔区 底下的商圈为 小寨, 小雁塔等的id
-        self.dataCategorys = getDianpingInfo(self.city)  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
+        '''
         self.dataCategorys = {"food" : "ch10",         # 美食 ch10
                               "life" : "ch30",        # 休闲娱乐 ch30
                               "wedding" : "ch10",      # 结婚
@@ -51,13 +63,21 @@ class getDianpingInfo():
                               "medical" : "ch10",        # 医疗健康
                               "car" : "ch10",           # 爱车
                               "pet" : "ch10"          # 宠物
-                             }
-
-
-    def getDataCategorys(self,city):
-        pass
-        result = requests.get(self.url, timeout=10)
-        soup = BeautifulSoup(result.text, 'html.parser')
+                             }  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
+        '''
+    def getDataCategorys(self,*city):
+        # dataCategorys 采集 此分类
+        result = requests.get(self.cityUrl, timeout=10, headers=self.headers )
+        if result.status_code==200:
+            soup = BeautifulSoup(result.text, 'html.parser')
+            ul = soup.find_all("li", class_="first-item")
+            for li in ul:
+                a = li.find_all("a", class_="index-item")[0]
+                key = a.attrs['data-category'].split(".")[1]
+                value = a.attrs['href'].split("/")[-2]
+                self.dataCategorys[key] = value
+            return self.dataCategorys
+        else: return None
 
     def getRegionNavs(self,id):
         self
@@ -65,7 +85,8 @@ class getDianpingInfo():
 
 
 if __name__=="__main__":
-    xianDianping = getDianpingInfo('xian')
+    dianping = getDianpingInfo('xian')
+    dianping.getDataCategorys()
 
 
 
@@ -86,6 +107,16 @@ if __name__=="__main__":
 
 
 
+'''
+userAgent用户代理是必须的,否则:
+抱歉！页面无法访问......
+错误信息：
+    currentDate:2018-07-31 16:56:23
+    userIp:124.89.8.137, 10.72.40.11
+    userAgent:python-requests/2.12.4
+
+去大众点评首页
 
 
+'''
 
