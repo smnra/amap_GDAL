@@ -14,7 +14,7 @@
 
 '''
 dianpingUrl
-http://www.dianping.com/xian
+http://www.dianping.com/xian/ch8
 http://www.dianping.com/xian/ch8/r8914
                                  r8914 为商圈代号
 https://www.dianping.com/ajax/json/suggest/search?do=hsc&c=17&s=0&q=%E7%8E%AB%E7%91%B0%E8%8A%B1
@@ -41,9 +41,9 @@ class getDianpingInfo():
                         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
                    }
 
-        self.cityUrl = 'http://www.dianping.com/xian'   # 获取总的分类列表 dataCategorys 的 分类id
+        self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
-        self.dataCategorys = {}      # 要采集的
+        self.dataCategorys = []      # 要采集的
         self.regionNavs = []     # 行政区 区县 如 科技路  的id
         self.regionNavSubs = []    # 按 行政区 的商圈 子分类  如 雁塔区 底下的商圈为 小寨, 小雁塔等的id
         '''
@@ -65,31 +65,41 @@ class getDianpingInfo():
                               "pet" : "ch10"          # 宠物
                              }  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
         '''
-    def getDataCategorys(self,*city):
-        # dataCategorys 采集 此分类
+    def getDataCategorys(self, *city):
+        # dataCategorys 获取POI总的分类
         result = requests.get(self.cityUrl, timeout=10, headers=self.headers )
-        if result.status_code==200:
-            soup = BeautifulSoup(result.text, 'html.parser')
-            ul = soup.find_all("li", class_="first-item")
-            for li in ul:
-                a = li.find_all("a", class_="index-item")[0]
-                key = a.attrs['data-category'].split(".")[1]
-                value = a.attrs['href'].split("/")[-2]
-                self.dataCategorys[key] = value
+        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
+            div = soup.find_all("div", class_="nc-items",attrs={'id':False})
+            # 查找 类名为"nc-items",并且 不存在 id 属性的 div 标签
+            for a in div[0].findAll("a"):
+                # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
+                value = a.find("span").text        # a标签的子标签 span 标签 的文本值
+                key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
+                self.dataCategorys.append([key, value, a.attrs['href']])
             return self.dataCategorys
         else: return None
 
-    def getRegionNavs(self,id):
-        self
+    def getRegionNavs(self, *city):
+        # 获取行政区列表
+        result = requests.get(self.cityUrl, timeout=10, headers=self.headers)
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            aTags = soup.find_all("a",attrs = {'data-click-name': "select_reg_biz_click"})
+            # 查找 属性  'data-click-name'  值为 "select_reg_biz_click"的 a 标签
+            for a in aTags:
+                value =  a.attrs['href'].split("/").text        # a标签的子标签 span 标签 的文本值
+                key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
 
 
 
 if __name__=="__main__":
     dianping = getDianpingInfo('xian')
-    dianping.getDataCategorys()
+    dataCategory = dianping.getDataCategorys()
+    print(dataCategory)
 
-
-
+    regionNew =  dianping.getRegionNavs()
+    print(dataCategory)
 
 
 
