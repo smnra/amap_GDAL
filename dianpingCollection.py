@@ -88,9 +88,13 @@ class getDianpingInfo():
             aTags = soup.find_all("a",attrs = {'data-click-name': "select_reg_biz_click"})
             # 查找 属性  'data-click-name'  值为 "select_reg_biz_click"的 a 标签
             for a in aTags:
-                value =  a.attrs['href'].split("/").text        # a标签的子标签 span 标签 的文本值
-                key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
-
+                if "http" in a.attrs['href']:
+                    key = a.attrs['data-cat-id']
+                    name = a.attrs['data-click-title']
+                    url = a.attrs['herf']
+                    self.regionNavs.append([key,name,url])
+            return self.regionNavs
+        else:return None
 
 
 if __name__=="__main__":
@@ -99,7 +103,7 @@ if __name__=="__main__":
     print(dataCategory)
 
     regionNew =  dianping.getRegionNavs()
-    print(dataCategory)
+    print(regionNew)
 
 
 
