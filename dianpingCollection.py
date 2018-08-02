@@ -39,7 +39,7 @@ class getDianpingInfo():
                         'Host': 'www.dianping.com',
                         'Upgrade-Insecure-Requests': '1',
                         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
-                   }
+                        }
 
         self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
@@ -71,7 +71,7 @@ class getDianpingInfo():
         if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
             soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
             div = soup.find_all("div", class_="nc-items",attrs={'id':False})
-            # 查找 类名为"nc-items",并且 不存在 id 属性的 div 标签
+            # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
             for a in div[0].findAll("a"):
                 # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
                 value = a.find("span").text        # a标签的子标签 span 标签 的文本值
@@ -91,10 +91,28 @@ class getDianpingInfo():
                 if "http" in a.attrs['href']:
                     key = a.attrs['data-cat-id']
                     name = a.attrs['data-click-title']
-                    url = a.attrs['herf']
+                    url = a.attrs['href']
                     self.regionNavs.append([key,name,url])
             return self.regionNavs
         else:return None
+        result = requests.get(regionNav[2], timeout=10, headers=self.headers)
+
+    def getRegionNavSubs(self,regionNavs):
+        # 获取行政区底下的商圈列表
+        for i, regionNav in enumerate(regionNavs):
+            result = requests.get(regionNav[2], timeout=10, headers=self.headers)
+            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                div = soup.find_all("div", attrs={'id': "region-nav-sub"})
+                div = div[0].find_all("a", attrs={'data-cat-id': True})
+                subRegion = []
+                for a in div:
+                    key = a.attrs['data-cat-id']
+                    name = a.find("span").text
+                    url = a.attrs['href']
+                    subRegion.append([key,name,url])
+                self.regionNavSubs.append(subRegion)
+        return self.regionNavSubs
 
 
 if __name__=="__main__":
@@ -106,6 +124,8 @@ if __name__=="__main__":
     print(regionNew)
 
 
+    regionSubNew =  dianping.getRegionNavSubs(dianping.regionNavs)
+    print(regionSubNew)
 
 
 
