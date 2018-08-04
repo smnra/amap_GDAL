@@ -44,8 +44,9 @@ class getDianpingInfo():
         self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
         self.dataCategorys = []      # 要采集的
-        self.regionNavs = []     # 行政区 区县 如 科技路  的id
-        self.regionNavSubs = []    # 按 行政区 的商圈 子分类  如 雁塔区 底下的商圈为 小寨, 小雁塔等的id
+        self.regionNavs = []
+        # 行政区 区县 如 科技路  的id 和包含的子商圈的列表 如:
+        # [['123', '碑林区', 'http://www.dianping.com/xian/ch0/r123', [['1754', '钟楼/鼓楼', 'http://www.dianping.com/xian/ch0/r1754'], ['1765', '西安交大东校区', 'http://www.dianping.com/xian/ch0/r1765'], ['1757', '小雁塔', 'http://www.dianping.com/xian/ch0/r1757']]
         '''
         self.dataCategorys = {"food" : "ch10",         # 美食 ch10
                               "life" : "ch30",        # 休闲娱乐 ch30
@@ -111,8 +112,8 @@ class getDianpingInfo():
                     name = a.find("span").text
                     url = a.attrs['href']
                     subRegion.append([key,name,url])
-                self.regionNavSubs.append(subRegion)
-        return self.regionNavSubs
+                self.regionNavs[i].append(subRegion)
+        return list(self.regionNavs)
 
 
 if __name__=="__main__":
