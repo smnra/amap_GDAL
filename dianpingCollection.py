@@ -23,6 +23,9 @@ http://www.dianping.com/search/map/keyword/17/10_ST.LOUIS%E5%9C%A3%E8%B7%AF%E6%9
 '''
 import requests
 from bs4  import BeautifulSoup
+from fake_useragent import UserAgent
+
+
 
 
 class getDianpingInfo():
@@ -44,9 +47,13 @@ class getDianpingInfo():
         self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
         self.dataCategorys = []      # 要采集的
-        self.regionNavs = []
+        self.regionNavs = []         # 区县列表
+        self.regionNavSubs = []      # 区县底下的商圈列表
         # 行政区 区县 如 科技路  的id 和包含的子商圈的列表 如:
         # [['123', '碑林区', 'http://www.dianping.com/xian/ch0/r123', [['1754', '钟楼/鼓楼', 'http://www.dianping.com/xian/ch0/r1754'], ['1765', '西安交大东校区', 'http://www.dianping.com/xian/ch0/r1765'], ['1757', '小雁塔', 'http://www.dianping.com/xian/ch0/r1757']]
+        self.pois = []     # 保存商圈底下的poi的列表
+        self.ua=UserAgent()     # 初始化 随机'User-Agent' 方法
+
         '''
         self.dataCategorys = {"food" : "ch10",         # 美食 ch10
                               "life" : "ch30",        # 休闲娱乐 ch30
@@ -66,6 +73,13 @@ class getDianpingInfo():
                               "pet" : "ch10"          # 宠物
                              }  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
         '''
+
+    def changeUserAgnet(self):
+        self.headers['User-Agent'] = self.ua.random
+
+    def clearCookie(self):
+        self.headers['Cookie'] = ""
+
     def getDataCategorys(self, *city):
         # dataCategorys 获取POI总的分类
         result = requests.get(self.cityUrl, timeout=10, headers=self.headers )
@@ -79,7 +93,9 @@ class getDianpingInfo():
                 key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
                 self.dataCategorys.append([key, value, a.attrs['href']])
             return self.dataCategorys
-        else: return None
+        else:
+            print("请检查验证码!")
+            return None
 
     def getRegionNavs(self, *city):
         # 获取行政区列表
@@ -95,8 +111,9 @@ class getDianpingInfo():
                     url = a.attrs['href']
                     self.regionNavs.append([key,name,url])
             return self.regionNavs
-        else:return None
-        result = requests.get(regionNav[2], timeout=10, headers=self.headers)
+        else :
+            print("请检查验证码!")
+            return None
 
     def getRegionNavSubs(self,regionNavs):
         # 获取行政区底下的商圈列表
@@ -112,21 +129,38 @@ class getDianpingInfo():
                     name = a.find("span").text
                     url = a.attrs['href']
                     subRegion.append([key,name,url])
+                self.regionNavSubs.append(subRegion)
                 self.regionNavs[i].append(subRegion)
+            else :
+                print("请检查验证码!")
+                return None
         return list(self.regionNavs)
+
+    def getPoi(self,dataCategory,regionNavSub):
+        # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
+        # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
+        url = "http://www.dianping.com/" + self.city + r"/" + dataCategory + r"/r" + regionNavSub
+        print(url)
+        result = requests.get(url, timeout=10, headers=self.headers)
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            div = soup.find_all("div",class_="txt")
+            for subDiv in div:
+                divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                divAddress = divStart.next_siblings()
+                print(divStart,divAddress)
+                print(subDiv.find_all(['a','span']))
+
+
 
 
 if __name__=="__main__":
     dianping = getDianpingInfo('xian')
-    dataCategory = dianping.getDataCategorys()
-    print(dataCategory)
-
-    regionNew =  dianping.getRegionNavs()
-    print(regionNew)
-
-
-    regionSubNew =  dianping.getRegionNavSubs(dianping.regionNavs)
+    dataCategory = dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
+    regionNew =  dianping.getRegionNavs()           # 获取 地市底下的区县列表 如 雁塔区 碑林区... 存储在 self.regionNavs 列表中
+    regionSubNew =  dianping.getRegionNavSubs(dianping.regionNavs)  # 获取县区底下的 商圈 列表 如  碑林区的 钟楼 交大东校区等..存储在 self.regionNavs 列表中.
     print(regionSubNew)
+    print(dianping.getPoi("ch10","8914"))
 
 
 
