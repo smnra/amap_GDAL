@@ -46,7 +46,27 @@ class getDianpingInfo():
 
         self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
-        self.dataCategorys = []      # 要采集的
+        self.dataCategorys = [['ch10', '美食', 'http://www.dianping.com/xian/ch10'],
+                              ['ch25', '电影演出赛事', 'http://www.dianping.com/xian/ch25'],
+                              ['ch30', '休闲娱乐', 'http://www.dianping.com/xian/ch30'],
+                              # ['ch60', '酒店', 'http://www.dianping.com/xian/ch60'],
+                              ['ch50', '丽人', 'http://www.dianping.com/xian/ch50'],
+                              ['ch15', 'K歌', 'http://www.dianping.com/xian/ch15'],
+                              ['ch45', '运动健身', 'http://www.dianping.com/xian/ch45'],
+                              ['ch35', '周边游', 'http://www.dianping.com/xian/ch35'],
+                              ['ch70', '亲子', 'http://www.dianping.com/xian/ch70'],
+                              # ['ch55', '结婚', 'http://www.dianping.com/xian/ch55'],
+                              ['ch20', '购物', 'http://www.dianping.com/xian/ch20'],
+                              ['ch95', '宠物', 'http://www.dianping.com/xian/ch95'],
+                              ['ch80', '生活服务', 'http://www.dianping.com/xian/ch80'],
+                              ['ch75', '学习培训', 'http://www.dianping.com/xian/ch75'],
+                              ['ch65', '爱车', 'http://www.dianping.com/xian/ch65'],
+                              ['ch85', '医疗健康', 'http://www.dianping.com/xian/ch85'],
+                              ['ch90', '家居', 'http://www.dianping.com/xian/ch90'],
+                              ['ch40', '宴会', 'http://www.dianping.com/xian/ch40'],
+                              ['ch33954', '榛果民宿', 'http://www.dianping.com/xian/ch33954']]     # 要采集的
+
+        self.subDataCategorys = []   # 子分类
         self.regionNavs = []         # 区县列表
         self.regionNavSubs = []      # 区县底下的商圈列表
         # 行政区 区县 如 科技路  的id 和包含的子商圈的列表 如:
@@ -55,25 +75,6 @@ class getDianpingInfo():
         self.pois.append(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local"])      # 列名
         self.ua=UserAgent()     # 初始化 随机'User-Agent' 方法
 
-        '''
-        self.dataCategorys = {"food" : "ch10",         # 美食 ch10
-                              "life" : "ch30",        # 休闲娱乐 ch30
-                              "wedding" : "ch10",      # 结婚
-                              "movie" : "ch10",        # 影视
-                              "beauty" : "ch10",       # 丽人
-                              "hotel" : "ch10",        # 酒店
-                              "baby" : "ch10",         # 亲子
-                              "view" : "ch10",         # 周边游
-                              "sports" : "ch10",        # 运动健身
-                              "shopping" : "ch20",      # 购物 ch20
-                              "home" : "ch10",           # 家装
-                              "education" : "ch10",     # 学习培训
-                              "other" : "ch10",          # 生活服务
-                              "medical" : "ch10",        # 医疗健康
-                              "car" : "ch10",           # 爱车
-                              "pet" : "ch10"          # 宠物
-                             }  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
-        '''
 
     def changeUserAgnet(self):
         self.headers['User-Agent'] = self.ua.random
@@ -83,6 +84,7 @@ class getDianpingInfo():
 
     def getDataCategorys(self):
         # dataCategorys 获取POI总的分类
+        self.dataCategorys = []
         self.changeUserAgnet()
         self.clearCookie()
         url = 'http://www.dianping.com/' + self.city + '/ch8'
@@ -96,10 +98,36 @@ class getDianpingInfo():
                 value = a.find("span").text        # a标签的子标签 span 标签 的文本值
                 key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
                 self.dataCategorys.append([key, value, a.attrs['href']])
-            return self.dataCategorys
+            return list(self.dataCategorys)
         else:
             print("请检查验证码!")
             return self.getDataCategorys()
+
+    def getSubDataCategorys(self,dataCategorys,i):
+        # dataCategorys 获取POI总的子分类 如:["110", "火锅"], ["112", "小吃快餐"] ...
+        self.changeUserAgnet()
+        self.clearCookie()
+        url = dataCategorys[2]     # 如 : 'http://www.dianping.com/xian/ch10'
+        result = requests.get(url, timeout=10, headers=self.headers )
+        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
+            div = soup.find_all("div", attrs={'id': "classfy"})
+            # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
+            print("正在获取:", dataCategorys)
+            if div:
+                tmp = []
+                for a in div[0].findAll("a"):
+                    # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
+                    value = a.find("span").text        # a标签的子标签 span 标签 的文本值
+                    key = a.attrs['data-cat-id']    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
+                    tmp.append(list([key, value, a.attrs['href']]))
+                self.dataCategorys[i].append(list(tmp))
+                return list(self.dataCategorys[i])
+            else: return None
+        else:
+            print("请检查验证码!")
+            return self.getSubDataCategorys(dataCategorys,i)
+
 
     def getRegionNavs(self):
         # 获取行政区列表
@@ -146,28 +174,31 @@ class getDianpingInfo():
             return self.getRegionNavSubs(regionNav,i)
 
 
-    def getMaxPage(self,dataCategory,regionNavSub):
+    def getMaxPage(self,ch, g, r):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
         # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
-        url = "http://www.dianping.com/" + self.city + r"/" + dataCategory + r"/r" + regionNavSub
-        print(url)
+        url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r
         self.changeUserAgnet()
         self.clearCookie()
         result = requests.get(url, timeout=10, headers=self.headers)
         if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
             soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-            maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
-            self.maxPage = maxPage   # 存储在对象中
-            return maxPage
+            divPage = soup.find_all("div", class_="page")
+            if divPage :
+                maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
+                self.maxPage = maxPage   # 存储在对象中
+                print(url,": 共", maxPage ,"页.")
+                return maxPage
+            else: return 1
         else :
             print("请检查验证码!")
-            return self.getMaxPage(dataCategory,regionNavSub)
+            return self.getMaxPage(ch, g, r)
 
 
-    def getPoi(self,dataCategory,regionNavSub,pageNum):
+    def getPoi(self,ch, g, r, p):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
         # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
-        url = "http://www.dianping.com/" + self.city + r"/" + dataCategory + r"/r" + regionNavSub + "p" + pageNum
+        url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + p
         print(url)
         self.changeUserAgnet()
         self.clearCookie()
@@ -198,32 +229,48 @@ class getDianpingInfo():
                 return pois
             else :
                 print("请检查验证码!")
-                return self.getPoi(dataCategory,regionNavSub,pageNum)
+                return self.getPoi(ch, g, r, p)
 
         except:
-            print('连接错误,重试!\n',"pageNum:",pageNum )
-            return self.getPoi(dataCategory,regionNavSub,pageNum)
+            print('连接错误,重试....',"pageNum:",p )
+            return self.getPoi(ch, g, r, p)
 
 if __name__=="__main__":
     dianping = getDianpingInfo('xian')
-    dataCategory = dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
+
+    dataCategorys = dianping.dataCategorys or dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
+    print(dataCategorys)
+    for i,dataCategory in enumerate(dataCategorys):
+        subDataCategorys = dianping.getSubDataCategorys(dataCategory,i)      #获取子分类 如 "火锅" "小吃快餐" "陕菜"...
+        print(subDataCategorys)
+
     regionNav =  dianping.getRegionNavs()           # 获取 地市底下的区县列表 如 雁塔区 碑林区... 存储在 self.regionNavs 列表中
+    print(regionNav)
     for i,regionNav in enumerate(dianping.regionNavs):
         regionSubNav =  dianping.getRegionNavSubs(regionNav,i)  # 获取县区底下的 商圈 列表 如  碑林区的 钟楼 交大东校区等..存储在 self.regionNavs 列表中.
         print(regionSubNav)
+
+
+    dataCategorys = list(dianping.dataCategorys)
     regionSubNavs = list(dianping.regionNavSubs)
     filePath = createNewDir()
     with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
         f.writelines(','.join(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
         # 写入表头
-
-    for regionSubNav in regionSubNavs:
-        maxPage = dianping.getMaxPage("ch10",regionSubNav[0])       # 获取商圈区域的最大页数  大于50页的可能获取不准确
-        for i in range(1,int(maxPage) + 1):                                 # i 为页数
-            pois = dianping.getPoi("ch10",regionSubNav[0],str(i))           # 采集店铺信息
-            if pois :
+    for dataCategory in dataCategorys:
+        ch = dataCategory[0]                # 总分类如 : 'ch10'
+        for dataCategorySub in dataCategory[3]:
+            g = dataCategorySub[0]                  # 子分类 如: 'g110'
+            for regionSubNav in regionSubNavs:
+                r = regionSubNav[0]                     # 子场景 如: 'r1765'
+                maxPage = dianping.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
+                toCsvlist = []
+                for i in range(1,int(maxPage) + 1):      # i 为页数
+                    pois = dianping.getPoi(ch, g, r,str(i))           # 采集店铺信息
+                    if pois :
+                        toCsvlist = toCsvlist + pois
                 with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
-                    f.writelines(pois)
+                    f.writelines(toCsvlist)
 
 
 
