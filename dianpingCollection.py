@@ -213,10 +213,9 @@ class getDianpingInfo():
             return self.getMaxPage(ch, g, r)
   
 
-    def getPoi(self,ch, g, r, p):
+    def getPoi(self,url):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
         # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
-        url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + p
         print(url)
         self.changeUserAgnet()
         self.clearCookie()
@@ -250,11 +249,11 @@ class getDianpingInfo():
                 return pois
             else :
                 print("请检查验证码!")
-                return self.getPoi(ch, g, r, p)
+                return self.getPoi(url)
 
         except:
-            print('连接错误,重试....',"pageNum:",p )
-            return self.getPoi(ch, g, r, p)
+            print('连接错误,重试....',"pageNum:",url )
+            return self.getPoi(url)
 
     def getCategoryData(self,ch):
         if not isExistPath(r'./tab/'+ self.city + r'_urls.dat'):  # 如果不存在urls.dat 则启动获取 urls 的 方法
@@ -285,46 +284,50 @@ class getDianpingInfo():
                             if isinstance(maxPage,int):
                                 for i in range(1,maxPage):
                                     url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + str(i)
-                                    self.urls.append(url)  # 将 所有要采集的子分类的url保存到 self.urls
-                                    urls.append(url)
+                                    self.urls.append(url + '\n')  # 将 所有要采集的子分类的url保存到 self.urls
+                                    urls.append(url + '\n')
                             with open(r'./tab/'+ self.city + r'_urls.dat', 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
-                                f.write('\n')
                                 f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
 
         else:
             with open(r'./tab/'+ self.city + r'_urls.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 self.urls = f.readlines()  # 从文件 urls.dat 读取 所有要采集的子分类的url
 
-    def main(self,urlList):
+    def main(self):
         filePath = createNewDir()
         count =0
         toCsvlist = []
         try:
-            if not isExistPath(r'./tab/currentUrl.dat'):          # 如果不存在 currentUrl.dat 则为新的采集
-                with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
+            if not isExistPath(r'./tab/currentUrl.dat'):          # 如果不存在 currentUrl.dat
+                with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
                     f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
                     # 写入表头
                 startNum = 0
             else:
-                with open(r'./tab/currentUrl.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                    self.currentUrl = f.readlines()  # 从文件 currentUrl.dat 读取采集进度.
-                startNum = self.urls.index(self.currentUrl)
+                with open(r'./tab/currentUrl.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
+                    self.currentUrl = f.readline()  # 从文件 currentUrl.dat 读取采集进度.
+                if self.currentUrl in self.urls:
+                    startNum = self.urls.index(self.currentUrl)
+                else:
+                    startNum = 0
 
-            for i,url in enumerate(self.urls):
+            for i,url in enumerate(self.urls[startNum:]):
                 count = count + 1
-                pois = self.getPoi(url)           # 采集店铺信息
+                pois = self.getPoi(url.strip())           # 采集店铺信息
                 if pois :
                     toCsvlist = toCsvlist + pois
                     self.currentUrl = url   # 保存采集进度
 
-                    if count>100:
-                        with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
+                    if count>20:
+                        with open(r'./tab/dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
                             f.writelines(toCsvlist)
                         with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                            f.writelines(" ".join(self.currentUrl))
+                            f.writelines(self.currentUrl)
                         count = 0
                         toCsvlist = []
         except:
+            with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+                f.writelines(toCsvlist)
             with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 f.writelines(" ".join(self.currentUrl))
 
