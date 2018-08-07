@@ -25,8 +25,11 @@ import requests
 from bs4  import BeautifulSoup
 from fake_useragent import UserAgent
 from decodeDzdpPoi import *
-from createNewDir import createNewDir
-import re
+from createNewDir import *
+from coordinateTranslate import *
+from random import randint
+from time import sleep
+import os
 
 class getDianpingInfo():
     def __init__(self,cityName='xian'):
@@ -74,8 +77,9 @@ class getDianpingInfo():
         self.pois = []     # 保存商圈底下的poi的列表
         self.pois.append(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local"])      # 列名
         self.ua=UserAgent()     # 初始化 随机'User-Agent' 方法
-
-
+        self.translate = GPS()      # 初始化坐标系转化
+        self.currentUrl = ''           # 保存采集进度的字典
+        self.urls = []
     def changeUserAgnet(self):
         self.headers['User-Agent'] = self.ua.random
 
@@ -108,71 +112,82 @@ class getDianpingInfo():
         self.changeUserAgnet()
         self.clearCookie()
         url = dataCategorys[2]     # 如 : 'http://www.dianping.com/xian/ch10'
-        result = requests.get(url, timeout=10, headers=self.headers )
-        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
-            soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
-            div = soup.find_all("div", attrs={'id': "classfy"})
-            # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
-            print("正在获取:", dataCategorys)
-            if div:
-                tmp = []
-                for a in div[0].findAll("a"):
-                    # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
-                    value = a.find("span").text        # a标签的子标签 span 标签 的文本值
-                    key = a.attrs['data-cat-id']    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
-                    tmp.append(list([key, value, a.attrs['href']]))
-                self.dataCategorys[i].append(list(tmp))
-                return list(self.dataCategorys[i])
-            else: return None
-        else:
-            print("请检查验证码!")
+        try:
+            result = requests.get(url, timeout=10, headers=self.headers )
+            if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
+                div = soup.find_all("div", attrs={'id': "classfy"})
+                # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
+                print("正在获取:", dataCategorys)
+                if div:
+                    tmp = []
+                    for a in div[0].findAll("a"):
+                        # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
+                        value = a.find("span").text        # a标签的子标签 span 标签 的文本值
+                        key = a.attrs['data-cat-id']    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
+                        tmp.append(list([key, value, a.attrs['href']]))
+                    self.dataCategorys[i].append(list(tmp))
+                    return list(self.dataCategorys[i])
+                else: return None
+            else:
+                print("请检查验证码!")
+                return self.getSubDataCategorys(dataCategorys,i)
+        except:
+            print("连接错误,重试.....!")
             return self.getSubDataCategorys(dataCategorys,i)
-
 
     def getRegionNavs(self):
         # 获取行政区列表
         self.changeUserAgnet()
         self.clearCookie()
         url = 'http://www.dianping.com/' + self.city + '/ch8'
-        result = requests.get(url, timeout=10, headers=self.headers)
-        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
-            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-            aTags = soup.find_all("a",attrs = {'data-click-name': "select_reg_biz_click"})
-            # 查找 属性  'data-click-name'  值为 "select_reg_biz_click"的 a 标签
-            for a in aTags:
-                if "http" in a.attrs['href']:
-                    key = a.attrs['data-cat-id']
-                    name = a.attrs['data-click-title']
-                    url = a.attrs['href']
-                    self.regionNavs.append([key,name,url])
-            return self.regionNavs
-        else :
-            print("请检查验证码!")
+        try:
+            result = requests.get(url, timeout=10, headers=self.headers)
+            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                aTags = soup.find_all("a",attrs = {'data-click-name': "select_reg_biz_click"})
+                # 查找 属性  'data-click-name'  值为 "select_reg_biz_click"的 a 标签
+                for a in aTags:
+                    if "http" in a.attrs['href']:
+                        key = a.attrs['data-cat-id']
+                        name = a.attrs['data-click-title']
+                        url = a.attrs['href']
+                        self.regionNavs.append([key,name,url])
+                return self.regionNavs
+            else :
+                print("请检查验证码!")
+                return self.getRegionNavs()
+        except:
+            print("连接错误,重试.....!")
             return self.getRegionNavs()
+
 
     def getRegionNavSubs(self,regionNav,i):
         # 获取行政区底下的商圈列表
         subRegions = []
         self.changeUserAgnet()
         self.clearCookie()
-        result = requests.get(regionNav[2], timeout=10, headers=self.headers)
-        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
-            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-            div = soup.find_all("div", attrs={'id': "region-nav-sub"})
-            div = div[0].find_all("a", attrs={'data-cat-id': True})
-            for a in div:
-                key = a.attrs['data-cat-id']
-                name = a.find("span").text
-                url = a.attrs['href']
-                subRegions.append(list([key, name, url]))
-                self.regionNavSubs.append(list([key, name, url]))       #存储在self.regionNavSubs 对象中
-            # maxPage = int(soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"])    # 获取最大页数
-            self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
-            return list(subRegions)
-        else:
-            print("请检查验证码!")
+        try:
+            result = requests.get(regionNav[2], timeout=10, headers=self.headers)
+            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                div = soup.find_all("div", attrs={'id': "region-nav-sub"})
+                div = div[0].find_all("a", attrs={'data-cat-id': True})
+                for a in div:
+                    key = a.attrs['data-cat-id']
+                    name = a.find("span").text
+                    url = a.attrs['href']
+                    subRegions.append(list([key, name, url]))
+                    self.regionNavSubs.append(list([key, name, url]))       #存储在self.regionNavSubs 对象中
+                # maxPage = int(soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"])    # 获取最大页数
+                self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
+                return list(subRegions)
+            else:
+                print("请检查验证码!")
+                return self.getRegionNavSubs(regionNav,i)
+        except:
+            print("连接错误,重试.....!")
             return self.getRegionNavSubs(regionNav,i)
-
 
     def getMaxPage(self,ch, g, r):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
@@ -180,20 +195,23 @@ class getDianpingInfo():
         url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r
         self.changeUserAgnet()
         self.clearCookie()
-        result = requests.get(url, timeout=10, headers=self.headers)
-        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
-            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-            divPage = soup.find_all("div", class_="page")
-            if divPage :
-                maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
-                self.maxPage = maxPage   # 存储在对象中
-                print(url,": 共", maxPage ,"页.")
-                return maxPage
-            else: return 1
-        else :
-            print("请检查验证码!")
+        try:
+            result = requests.get(url, timeout=10, headers=self.headers)
+            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                divPage = soup.find_all("div", class_="page")
+                if divPage :
+                    maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
+                    self.maxPage = int(maxPage)   # 存储在对象中
+                    print(url,": 共", maxPage ,"页.")
+                    return int(maxPage)
+                else: return 1
+            else :
+                print("请检查验证码!")
+        except:
+            print('连接错误,重试....',"url:",url )
             return self.getMaxPage(ch, g, r)
-
+  
 
     def getPoi(self,ch, g, r, p):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
@@ -209,12 +227,13 @@ class getDianpingInfo():
                 div = soup.find_all("div",class_="txt")
                 divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
                 aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
+                aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
                 pois = []
                 for i,subDiv in enumerate(div):
                     poi = []
                     divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                    name = aName[i].attrs["title"]
                     id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
-
                     starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
                     commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
                     if commentNum=='我要点评': commentNum='0'
@@ -222,8 +241,10 @@ class getDianpingInfo():
                     subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
                     address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
                     localId = aLocal[i].attrs["data-poi"]                               # 加密过的 经纬度信息
-                    local = ";".join(decodePoi(localId))
-                    poi = [id, starNum, commentNum, avgPrice, subRegion, address, localId, local]
+                    local = decodePoi(localId)
+                    local = self.translate.gcj_decrypt_exact(local[0],local[1])
+                    local =  str(local["lon"]) + ";" + str(local["lat"])
+                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, address, localId, local]
                     pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
                     # self.pois.append(poi)
                 return pois
@@ -235,9 +256,95 @@ class getDianpingInfo():
             print('连接错误,重试....',"pageNum:",p )
             return self.getPoi(ch, g, r, p)
 
+    def getCategoryData(self,ch):
+        if not isExistPath(r'./tab/'+ self.city + r'_urls.dat'):  # 如果不存在urls.dat 则启动获取 urls 的 方法
+            dataCategorys = self.dataCategorys or self.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
+            print(dataCategorys)
+            for i,dataCategory in enumerate(dataCategorys):
+                subDataCategorys = self.getSubDataCategorys(dataCategory,i)      #获取子分类 如 "火锅" "小吃快餐" "陕菜"...
+                print(subDataCategorys)
+
+            regionNav =  self.getRegionNavs()           # 获取 地市底下的区县列表 如 雁塔区 碑林区... 存储在 self.regionNavs 列表中
+            print(regionNav)
+            for i,regionNav in enumerate(self.regionNavs):
+                regionSubNav =  self.getRegionNavSubs(regionNav,i)  # 获取县区底下的 商圈 列表 如  碑林区的 钟楼 交大东校区等..存储在 self.regionNavs 列表中.
+                print(regionSubNav)
+
+            dataCategorys = list(self.dataCategorys)
+            regionSubNavs = list(self.regionNavSubs)
+            self.urls.clear()            # 清空 poiUrls 列表
+
+            for dataCategory in dataCategorys:
+                if ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
+                    for dataCategorySub in dataCategory[3]:
+                        g = dataCategorySub[0]  # 子分类 如: 'g110'
+                        for regionSubNav in regionSubNavs:
+                            r = regionSubNav[0]  # 子场景 如: 'r1765'
+                            maxPage = self.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
+                            urls = []
+                            if isinstance(maxPage,int):
+                                for i in range(1,maxPage):
+                                    url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + str(i)
+                                    self.urls.append(url)  # 将 所有要采集的子分类的url保存到 self.urls
+                                    urls.append(url)
+                            with open(r'./tab/'+ self.city + r'_urls.dat', 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
+                                f.write('\n')
+                                f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
+
+        else:
+            with open(r'./tab/'+ self.city + r'_urls.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                self.urls = f.readlines()  # 从文件 urls.dat 读取 所有要采集的子分类的url
+
+    def main(self,urlList):
+        filePath = createNewDir()
+        count =0
+        toCsvlist = []
+        try:
+            if not isExistPath(r'./tab/currentUrl.dat'):          # 如果不存在 currentUrl.dat 则为新的采集
+                with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
+                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
+                    # 写入表头
+                startNum = 0
+            else:
+                with open(r'./tab/currentUrl.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                    self.currentUrl = f.readlines()  # 从文件 currentUrl.dat 读取采集进度.
+                startNum = self.urls.index(self.currentUrl)
+
+            for i,url in enumerate(self.urls):
+                count = count + 1
+                pois = self.getPoi(url)           # 采集店铺信息
+                if pois :
+                    toCsvlist = toCsvlist + pois
+                    self.currentUrl = url   # 保存采集进度
+
+                    if count>100:
+                        with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
+                            f.writelines(toCsvlist)
+                        with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                            f.writelines(" ".join(self.currentUrl))
+                        count = 0
+                        toCsvlist = []
+        except:
+            with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                f.writelines(" ".join(self.currentUrl))
+
+
+
+
+
+
+
+
+
 if __name__=="__main__":
     dianping = getDianpingInfo('xian')
+    urlList = dianping.getCategoryData('ch10')
+    dianping.main()
+    # dianping.getPoi('ch10', '110','23886', '5')
 
+
+'''
+    if not isExistPath(r'./tab/urls.dat'):          # 如果不存在urls.dat 则启动获取 urls 的 方法
     dataCategorys = dianping.dataCategorys or dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
     print(dataCategorys)
     for i,dataCategory in enumerate(dataCategorys):
@@ -255,25 +362,31 @@ if __name__=="__main__":
     regionSubNavs = list(dianping.regionNavSubs)
     filePath = createNewDir()
     with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
-        f.writelines(','.join(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
+        f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
         # 写入表头
-    for dataCategory in dataCategorys:
-        ch = dataCategory[0]                # 总分类如 : 'ch10'
-        for dataCategorySub in dataCategory[3]:
-            g = dataCategorySub[0]                  # 子分类 如: 'g110'
-            for regionSubNav in regionSubNavs:
-                r = regionSubNav[0]                     # 子场景 如: 'r1765'
-                maxPage = dianping.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
-                toCsvlist = []
-                for i in range(1,int(maxPage) + 1):      # i 为页数
-                    pois = dianping.getPoi(ch, g, r,str(i))           # 采集店铺信息
-                    if pois :
-                        toCsvlist = toCsvlist + pois
-                with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
-                    f.writelines(toCsvlist)
+    try:
+        for dataCategory in dataCategorys:
+            ch = dataCategory[0]                # 总分类如 : 'ch10'
+            for dataCategorySub in dataCategory[3]:
+                g = dataCategorySub[0]                  # 子分类 如: 'g110'
+                for regionSubNav in regionSubNavs:
+                    r = regionSubNav[0]                     # 子场景 如: 'r1765'
+                    maxPage = dianping.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
+                    toCsvlist = []
+                    for i in range(1,int(maxPage) + 1):      # i 为页数
+                        pois = dianping.getPoi(ch, g, r,str(i))           # 采集店铺信息
+                        if pois :
+                            toCsvlist = toCsvlist + pois
+                            dianping.currentUrl = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + str(i)     # 保存采集进度
 
+                            
+                    with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
+                        f.writelines(toCsvlist)
+    except:
+        with open('current.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            f.writelines(" ".join(dianping.currentUrl))
 
-
+'''
 
 
 
