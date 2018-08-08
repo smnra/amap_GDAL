@@ -1,352 +1,229 @@
-# -*- coding:UTF-8 -*-
+#!usr/bin/env python
+#-*- coding:utf-8 _*-
 
+"""
+@author:Administrator
+@file: dianpingCollection.py
+@time: 2018/07/{DAY}
+描述: 大众点评网 评估查询采集
+
+"""
+
+
+
+
+'''
+dianpingUrl
+http://www.dianping.com/xian/ch8
+http://www.dianping.com/xian/ch8/r8914
+                                 r8914 为商圈代号
+https://www.dianping.com/ajax/json/suggest/search?do=hsc&c=17&s=0&q=%E7%8E%AB%E7%91%B0%E8%8A%B1
+http://www.dianping.com/search/map/keyword/17/10_ST.LOUIS%E5%9C%A3%E8%B7%AF%E6%98%93%E8%91%A1%E5%9B%BD%E9%A4%90%E5%8E%85#
+
+'''
 import requests
-from changeKey import Keys              #导入自定义模块
-import time
-from cutRect import cutRect, rectToPoint
-import createShapeFile
-import arrow, os
-import WriteToExcel
-import changeProxy
-import geoOperation
-import getProxyFromProxyPools
+from bs4  import BeautifulSoup
+from fake_useragent import UserAgent
+from decodeDzdpPoi import *
+from createNewDir import createNewDir
+import re
 
+class getDianpingInfo():
+    def __init__(self,cityName='xian'):
+        # url : http://www.dianping.com/xian/ch10/r8914o2    #  最后面的o2  是结果的排序方式
 
+        self.headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Accept-Language': 'zh-CN,zh;q=0.9',
+                        'Cache-Control': 'max-age=0',
+                        'Connection': 'keep-alive',
+                        'Cookie': 'navCtgScroll=0; showNav=#nav-tab|0|0; _lx_utm=utm_source%3DBaidu%26utm_medium%3Dorganic; _lxsdk_cuid=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _lxsdk=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _hc.v=2195dd5e-1af7-1442-0872-b25748f68cf1.1532980446; s_ViewType=10; _dp.ac.v=0e97f4cb-0a00-4b68-a3af-42cbd882e87d; ua=13201465365; ctu=f5d5b94828db29ae10e4468d68c4987437689a310853888c076fc6a448bcd3e2; aburl=1; cy=17; cye=xian',
+                        'DNT': '1',
+                        'Host': 'www.dianping.com',
+                        'Upgrade-Insecure-Requests': '1',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
+                        }
 
-poi_search_url = "http://restapi.amap.com/v3/place/text"
-#poi_boundary_url = "https://ditu.amap.com/detail/get/detail"
-poi_boundary_url = "https://www.amap.com/detail/get/detail"
-url = 'http://restapi.amap.com/v3/place/polygon'
-
-
-
-class GetRectPoi():
-    url = 'http://restapi.amap.com/v3/place/polygon?polygon=108.889573,34.269261;108.924163,34.250959&key=dc44a8ec8db3f9ac82344f9aa536e678&extensions=all&offset=10&page=1'
-    # 在此处 polygon 字段为 要取得POI的 矩形框的左上角坐标 和右下角坐标 例如 '108.889573,34.269261;108.924163,34.250959'
-    # key 为高德地图的 key 如 : 'dc44a8ec8db3f9ac82344f9aa536e678'
-    # extensions 表示 是要获取基本POI  还是全部POI  值为 'base' 或  'all'
-    # offset 为 每一页返回的POI 的个数 建议不超过15个 10 个最好 值为 '10'
-    # page 为页数  '1'
-
-    headers = { 'Accept': '*/*',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'amapuuid': 'f0eb8c88-381f-42e8-bad7-84c2b02182ba',
-                'Connection': 'keep-alive',
-                'Cookie': 'guid=d328-93e9-ab2c-8c2e; _uab_collina=152386621543970113277911; key=bfe31f4e0fb231d29e1d3ce951e2c780; isg=BBcXOj6rAYFaHYU2AxDe-SCKpothXOu-qT4PfmlEM-ZNmDfacSx7DtW6_jiGa8M2',
-                'DNT': '1',
-                'Host': 'www.amap.com',
-                'Referer': 'https://www.amap.com/place/B001D14VWT',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162',
-                'X-Requested-With': 'XMLHttpRequest'
-
-                }
-
-
-
-
-    '''
-    headers = {'Upgrade-Insecure-Requests': '1',
-               'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-               'Accept-Encoding': 'gzip, deflate, sdch, br',
-               'Accept-Language': 'zh-CN,zh;q=0.8',
-               }
-    '''
-
-    def __init__(self):
-        self.sourceRect = ''          #定义源矩形的对象坐标
-        self.url = 'http://restapi.amap.com/v3/place/polygon'               #获取POI的 url
-        self.urlParams = {'key': 'dc44a8ec8db3f9ac82344f9aa536e678',
-                          'polygon': '',                   #self.rectToPolygonStr(rect),
-                          'extensions': 'all',
-                          'offset': '10',
-                          'page': '1' }
-
-        self.headers = {'Accept': '*/*',
-                   'Accept-Encoding': 'gzip, deflate, br',
-                   'Accept-Language': 'zh-CN,zh;q=0.9',
-                   'amapuuid': 'f0eb8c88-381f-42e8-bad7-84c2b02182ba',
-                   'Connection': 'keep-alive',
-                   'Cookie': 'guid=d328-93e9-ab2c-8c2e; _uab_collina=152386621543970113277911; key=bfe31f4e0fb231d29e1d3ce951e2c780; isg=BBcXOj6rAYFaHYU2AxDe-SCKpothXOu-qT4PfmlEM-ZNmDfacSx7DtW6_jiGa8M2',
-                   'DNT': '1',
-                   'Host': 'www.amap.com',
-                   'Referer': 'https://www.amap.com/place/B001D14VWT',
-                   'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162',
-                   'X-Requested-With': 'XMLHttpRequest'
-
-                   }
-
-        self.proxyPools = getProxyFromProxyPools.ChangeProxy()                              #实例化代理池类
-        self.amapKey = Keys()                                                                    # 实例化 Keys 类对象
-        self.boundURL = 'https://www.amap.com/detail/get/detail'           #根据ID获取 bound的url
-        self.boundURLParams = {'id' : ''}                                       #self.boundURL的参数
-
-        self.subRectPosCount = []       #分割rect后的 信息
-        self.createTime = arrow.now().format('YYYYMMDDHHmmss')
-        self.filePath = os.getcwd()  +  '\\tab\\' + self.createTime + '\\'        #拼接文件夹以当天日期命名
-        self.pois = []                  #用来保存poi数据的 列表
-
-    def add_parameters(self,params, **kwargs):
-        #将字典中 key  转化为 'key'　
-        return params.update(kwargs)
-        #>> > params = {}
-        #>> > add_parameters(params, f1=1, f2=3, f3=9)
-        #>> > params
-        #{'f1': 1, 'f2': 3, 'f3': 9}
-
-    def rectToPolygonStr(self, rect) :
-        #rect格式为 [[108.889573,34.269261], [108.924163,34.250959]]
-        polygon = str(rect[0][0]) + ',' + str(rect[0][1]) + ';' + str(rect[1][0]) + ',' + str(rect[1][1])
-        # 转化为'108.889573,34.269261;108.924163,34.250959'
-        return  polygon
-
-    def setParams(self,keyDict):
-        #设置requests.get() 方法 url附带的的 参数
-        for key,value in keyDict.items() :              #遍历 keyDict
-            if key in self.urlParams :   #如果 keyDict 中的key 在 self.urlParams中存在,
-                self.urlParams[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
-
-    def setHeader(self,keyDict):
-        #设置requests.get() 方法 url附带的的 参数
-        for key,value in keyDict.items() :              #遍历 keyDict
-            if key in self.headers :   #如果 keyDict 中的key 在 self.urlParams中存在,
-                self.headers[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
-
-
-
-
-    def getRectPoiCount(self,rect):
-        #接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
-        #通过解析返回POI数量的json 此方法的返回值为 键值对 {'rect' : rect, 'count' : 742}
-        rectParam = {'polygon': self.rectToPolygonStr(rect)}
-        self.setParams(rectParam)                               #使用 self.setParams() 方法 更新 'polygon' 字段的值
-        try:
-            result = requests.get(self.url, params = self.urlParams, timeout = 10, headers = GetRectPoi.headers)
-            if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()                    #得到json格式的数据
-                #poiCount = int(resultJson['count'])          #从 'count' 字段 得到 poi的 个数
-                rectPoiCount = {'rect' : rect, 'count': int(resultJson['count'])}         # 把 键值对 {'rect' : rect} 更新到 resultJson
-                return rectPoiCount
-            elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('too fast, 120s retry!')
-                time.sleep(120)                                #暂停120秒后 迭代 本函数
-                return self.getRectPoiCount(rect)             #暂停120秒后 迭代 本函数
-            elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')             #暂停3秒
-                time.sleep(3)
-                self.setParams({'key': self.amapKey.getKey()})      #更换key
-                return self.getRectPoiCount(rect)             # 迭代 本函数
-            else :
-                return 0
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
-            return -3
-
-    def getRectPoiNumber(self,rect):
-        #分割RECT矩形,如果经纬度矩形内的POI个数大于800个
-        # 就把此矩形递归的分割成四等份,类似于四叉树,
-        # 并且将包含矩形内POI数量和矩形rect的列表 保存在self.subRectPosCount列表中
-        result = self.getPoi(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
-        if  not isinstance(result,int) :          #如果返回值为不为int型(为列表)
-            if int(result['count']) > 30 :       #如果返回的poi个数 大于 800
-                rects = cutRect(rect)                       #将rect分割为四等份
-                for subRect in rects :                      #递归四个子矩形rect
-                    print(self.getRectPoiNumber(subRect))
-            elif int(result['count']) <= 30 :        #如果 返回的rect内的POI个数 小于800,
-                rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
-                self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-            return 1                    #返回 1 表示正常
-        else :
-            print(result)
-            return result           #如果返回值为 int, 说明返回的是出错代码 小于1的整数
-
-    def getPoi(self,rect):
-        #此方法先使用self.setParams() 方法 设置 requests.get()方法的 附带参数字段 , 返回 rect 范围内 poi 的信息
-        rectParam = {'polygon': self.rectToPolygonStr(rect)}
-        self.setParams(rectParam)  # 使用 self.setParams() 方法 更新  requests.get()方法的 附带参数字段 'polygon' 字段的值
-        try:
-            result = requests.get(self.url, params=self.urlParams, timeout=10, headers=GetRectPoi.headers)
-            if result.json()['status'] == '1':  # 在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()  # 得到json格式的数据
-                # poiCount = int(resultJson['count'])          #从 'count' 字段 得到 poi的 个数
-                poisPage = resultJson  # 把 键值对 {'rect' : rect} 更新到 resultJson
-                return poisPage         #返回 poi 的列表
-            elif result.json()['status'] == '6':  # 在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('too fast, 120s retry!')
-                time.sleep(120)  # 暂停120秒后 迭代 本函数
-                return self.getPoi(rect)  # 暂停120秒后 迭代 本函数
-            elif result.json()['status'] == '0':  # 在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')  # 暂停3秒
-                time.sleep(3)
-                self.setParams({'key': self.amapKey.getKey()})  # 更换key
-                return self.getPoi(rect)  # 迭代 本函数
-            else:
-                return 0
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
-            return -3
-
-    def getPoiID(self,rect):
-        #此方法执行完将返回 rect内 POI信息 将保存在self.pois 列表中
-        result = {}
-        result = self.getRectPoiNumber(rect)
-        if result == 1 :    #getRectPoiNumber()方法的返回值正常
-            if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[]  此列表为获取到的所有子矩形 保存的列表
-                for subRect in self.subRectPosCount:        #遍历每一个子矩形
-                    notEnd = True                    #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
-                    page = 0                          #定义当前获取页索引
-                    while notEnd:
-                        page = page + 1             #页数加1
-                        rectParam = {'page': str(page)}
-                        self.setParams(rectParam)  # 使用 self.setParams() 方法 更新 get()方法  'page' 的字段 的值
-                        result = self.getPoi(subRect['rect'])           #一个result 就是一页 POI
-                        if not isinstance(result,int) :                 #如果返回的result 为int 类型 则为出错
-                            currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
-                            if (currentPagePoiNumber - 10 < 0) and  (int(result['count'])  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
-                                notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
-                            if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
-                                for poi in result['pois'] : #遍历每一个 POI
-                                    self.pois.append(poi)
-                                    print(str(poi))
-        return  self.pois
-
-    def getPoiBound(self,poiID,proxyRequest) :
-        Referer = {'Referer': 'https://www.amap.com/place/' + poiID}
-        self.setHeader(Referer)  # 使用 self.setHeader() 方法 更新  RequestHeader 中的 Referer 字段中的 poiID
-
-        #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
-        params = {'id' : poiID }
-        try:
-            result = proxyRequest.get(self.boundURL, params = params, timeout = 10, headers = GetRectPoi.headers)
-            if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()                    #得到json格式的数据
-                if 'mining_shape' in resultJson.get('data','').get('spec','') :
-                    strRing = resultJson.get('data','').get('spec','').get('mining_shape','').get('shape','')
-                    if len(strRing) > 0 :
-                        pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
-                        ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
-                        polygon = geoOperation.Polygon(ring)                         #实例化 geoOperation 对象
-                        center = resultJson.get('data','').get('spec','').get('mining_shape','').get('center','')          #获得中心点的坐标 , 默认为 ''
-                        if polygon.isInvalidBound(center) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
-                            print('Polygon\'s line is Crosses, change a http proxy to retry!')
-                            changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
-                            return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
-                        else :
-                            print(poiID + u' 边界正常: ' + str(ring) )
-                            return ring                                  # 没有交叉  则 返回 ring
-                    else:
-                        return -4
-                else:
-                    print(poiID + u'此 POI 不存在 mining_shape!')
-                    return -5
-            elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('Too fast, change a http proxy to retry!')
-                time.sleep(1)                                #暂停120秒后 迭代 本函数
-                changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
-                return self.getPoiBound(poiID, changeProxyRequest)  # 迭代 本函数
-            elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
-                print('Not found this id!')
-                time.sleep(1)  # 暂停1秒
-                return -6
-            elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')             #暂停3秒
-                time.sleep(1)
-                self.setParams({'key': self.amapKey.getKey()})      #更换key
-                return self.getPoiBound(poiID, proxyRequest)             # 迭代 本函数
-            else :
-                return -7
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            time.sleep(1)
-            changeProxyRequest = self.proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
-            return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
-            # return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened.')
-            return -3
-
-
-def getAmapInfo(rect) :
-    # 参数 rect 为 [[108.897814, 34.2752], [108.953437, 34.257061]]   为要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
-    # proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块 从 ./proxy.txt 文件读取
-    proxyPools = getProxyFromProxyPools.ChangeProxy()                              #实例化代理池类
-    #amapKey = Keys()  # 初始化Keys 类对象
-    #amap_web_key = amapKey.keyCurrent  # 初始值 Key列表
-    # amapKey.getKey()                #更换Key
-
-    #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]
-    #rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
-    getBoundCount = 0                                           #amap 初步计算 一个ip请求30 个 bound 后 ,再取出的 bound值  就完全错乱的 或者说加密了, 此变量就是为了计数
-
-
-    createTime = arrow.now().format('YYYYMMDDHHmmss')           #创建要保存数据的文件夹
-    filePath = os.getcwd() + '\\tab\\' + createTime + '\\'  # 拼接文件夹以当天日期命名
-    if os.path.exists(filePath):  # 判断路径是否存在
-        print(u"目标已存在:", filePath)  # 如果存在 打印路径已存在,
-    else:
-        os.makedirs(filePath)  # 如果不存在 创建目录
-
-
-    rectPoi = GetRectPoi()      #实例化对象
-    #print(rectPoi.getPoiBound('B001D09SOI'))
-    poiCount =  rectPoi.getPoiID(rect)      #此方法执行完将返回所有分割后的 rect 的 POI信息 将保存在self.pois 列表中
-    print(rectPoi.subRectPosCount)                  #分割后所有的子rect 保存在 self.subRectPosCount 属性中
-    # WriteToExcel.toExcel(filePath.join('poi.xlsx'), rectPoi.pois)
-
-
-
-    ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
-
-
-
-    boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = []
-    ring = []
-    '''
-    for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append(fieldName[:10],(4,254))                 #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度 , fieldName[:10]取fieldName的前十个字符
-    '''
-    fieldList = [(fieldName[:10],(4,254)) for fieldName in list(rectPoi.pois[0].keys())]           #用列表推导式生成fieldList 可以代替上面的 for 循环
-    fieldList = sorted(fieldList)           # fieldList 排序
-    dataSource = boundMap.newFile('bound.shp')                                    #创建文件
-    boundtLayer = boundMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for poi in rectPoi.pois :
-        fieldValues = []                                        #定义(清空)字段值的列表
-        proxyRequest = proxyPools.noProxyIP()                   #首次传入一个无代理的 session对象实例
+        self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
+        self.city = cityName              # 要采集的城市 默认为西安
+        self.dataCategorys = []      # 要采集的
+        self.regionNavs = []         # 区县列表
+        self.regionNavSubs = []      # 区县底下的商圈列表
+        # 行政区 区县 如 科技路  的id 和包含的子商圈的列表 如:
+        # [['123', '碑林区', 'http://www.dianping.com/xian/ch0/r123', [['1754', '钟楼/鼓楼', 'http://www.dianping.com/xian/ch0/r1754'], ['1765', '西安交大东校区', 'http://www.dianping.com/xian/ch0/r1765'], ['1757', '小雁塔', 'http://www.dianping.com/xian/ch0/r1757']]
+        self.pois = []     # 保存商圈底下的poi的列表
+        self.pois.append(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local"])      # 列名
+        self.ua=UserAgent()     # 初始化 随机'User-Agent' 方法
 
         '''
-       for fieldName in fieldList :                            #生成 字段值的列表
-            value = str(poi.get(fieldName[0],'') )                   #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
-            fieldValues.append(value)                           ##将value添加到fieldValues ##!!!!
-       '''
-        fieldValues = [str(poi.get(x[0], '')) for x in fieldList]           #用列表推导式代替上方的 for 循环 生成 fieldValues 列表
+        self.dataCategorys = {"food" : "ch10",         # 美食 ch10
+                              "life" : "ch30",        # 休闲娱乐 ch30
+                              "wedding" : "ch10",      # 结婚
+                              "movie" : "ch10",        # 影视
+                              "beauty" : "ch10",       # 丽人
+                              "hotel" : "ch10",        # 酒店
+                              "baby" : "ch10",         # 亲子
+                              "view" : "ch10",         # 周边游
+                              "sports" : "ch10",        # 运动健身
+                              "shopping" : "ch20",      # 购物 ch20
+                              "home" : "ch10",           # 家装
+                              "education" : "ch10",     # 学习培训
+                              "other" : "ch10",          # 生活服务
+                              "medical" : "ch10",        # 医疗健康
+                              "car" : "ch10",           # 爱车
+                              "pet" : "ch10"          # 宠物
+                             }  # 总分类 例如:在属性名为:data-category 值 为 "index.food" ,"index.life",  等 在页面中可以查找到 http://www.dianping.com/xian
+        '''
 
-        podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
-        if podId :                                              #如果 podId 存在
-            if getBoundCount + 1 % 30 == 0 :
-                proxyRequest = proxyPools.changeProxyIP()        #每30次更换一次代理
-            ring = rectPoi.getPoiBound(podId,proxyRequest)
-            time.sleep(1)
-            getBoundCount += 1
-            if isinstance(ring,list) :
-                boundMap.createPolygon(boundtLayer,[ring],fieldValues)
-    ##########################################################为创建所有POI 建筑物边界 的 shape图层文件
+    def changeUserAgnet(self):
+        self.headers['User-Agent'] = self.ua.random
+
+    def clearCookie(self):
+        self.headers['Cookie'] = ""
+
+    def getDataCategorys(self):
+        # dataCategorys 获取POI总的分类
+        self.changeUserAgnet()
+        self.clearCookie()
+        url = 'http://www.dianping.com/' + self.city + '/ch8'
+        result = requests.get(url, timeout=10, headers=self.headers )
+        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
+            div = soup.find_all("div", class_="nc-items",attrs={'id':False})
+            # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
+            for a in div[0].findAll("a"):
+                # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
+                value = a.find("span").text        # a标签的子标签 span 标签 的文本值
+                key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
+                self.dataCategorys.append([key, value, a.attrs['href']])
+            return self.dataCategorys
+        else:
+            print("请检查验证码!")
+            return self.getDataCategorys()
+
+    def getRegionNavs(self):
+        # 获取行政区列表
+        self.changeUserAgnet()
+        self.clearCookie()
+        url = 'http://www.dianping.com/' + self.city + '/ch8'
+        result = requests.get(url, timeout=10, headers=self.headers)
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            aTags = soup.find_all("a",attrs = {'data-click-name': "select_reg_biz_click"})
+            # 查找 属性  'data-click-name'  值为 "select_reg_biz_click"的 a 标签
+            for a in aTags:
+                if "http" in a.attrs['href']:
+                    key = a.attrs['data-cat-id']
+                    name = a.attrs['data-click-title']
+                    url = a.attrs['href']
+                    self.regionNavs.append([key,name,url])
+            return self.regionNavs
+        else :
+            print("请检查验证码!")
+            return self.getRegionNavs()
+
+    def getRegionNavSubs(self,regionNav,i):
+        # 获取行政区底下的商圈列表
+        subRegions = []
+        self.changeUserAgnet()
+        self.clearCookie()
+        result = requests.get(regionNav[2], timeout=10, headers=self.headers)
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            div = soup.find_all("div", attrs={'id': "region-nav-sub"})
+            div = div[0].find_all("a", attrs={'data-cat-id': True})
+            for a in div:
+                key = a.attrs['data-cat-id']
+                name = a.find("span").text
+                url = a.attrs['href']
+                subRegions.append(list([key, name, url]))
+                self.regionNavSubs.append(list([key, name, url]))       #存储在self.regionNavSubs 对象中
+            # maxPage = int(soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"])    # 获取最大页数
+            self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
+            return list(subRegions)
+        else:
+            print("请检查验证码!")
+            return self.getRegionNavSubs(regionNav,i)
+
+
+    def getMaxPage(self,dataCategory,regionNavSub):
+        # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
+        # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
+        url = "http://www.dianping.com/" + self.city + r"/" + dataCategory + r"/r" + regionNavSub
+        print(url)
+        self.changeUserAgnet()
+        self.clearCookie()
+        result = requests.get(url, timeout=10, headers=self.headers)
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
+            self.maxPage = maxPage   # 存储在对象中
+            return maxPage
+        else :
+            print("请检查验证码!")
+            return self.getMaxPage(dataCategory,regionNavSub)
+
+
+    def getPoi(self,dataCategory,regionNavSub,pageNum):
+        # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
+        # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
+        url = "http://www.dianping.com/" + self.city + r"/" + dataCategory + r"/r" + regionNavSub + "p" + pageNum
+        print(url)
+        self.changeUserAgnet()
+        self.clearCookie()
+        try:
+            result = requests.get(url, timeout=10, headers=self.headers)
+            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                div = soup.find_all("div",class_="txt")
+                divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
+                aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
+                pois = []
+                for i,subDiv in enumerate(div):
+                    poi = []
+                    divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                    id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
+
+                    starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
+                    commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
+                    if commentNum=='我要点评': commentNum='0'
+                    avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
+                    subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
+                    address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
+                    localId = aLocal[i].attrs["data-poi"]                               # 加密过的 经纬度信息
+                    local = ";".join(decodePoi(localId))
+                    poi = [id, starNum, commentNum, avgPrice, subRegion, address, localId, local]
+                    pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
+                    # self.pois.append(poi)
+                return pois
+            else :
+                print("请检查验证码!")
+                return self.getPoi(dataCategory,regionNavSub,pageNum)
+
+        except:
+            print('连接错误,重试!\n',"pageNum:",pageNum )
+            return self.getPoi(dataCategory,regionNavSub,pageNum)
+
+if __name__=="__main__":
+    dianping = getDianpingInfo('xian')
+    dataCategory = dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
+    regionNav =  dianping.getRegionNavs()           # 获取 地市底下的区县列表 如 雁塔区 碑林区... 存储在 self.regionNavs 列表中
+    for i,regionNav in enumerate(dianping.regionNavs):
+        regionSubNav =  dianping.getRegionNavSubs(regionNav,i)  # 获取县区底下的 商圈 列表 如  碑林区的 钟楼 交大东校区等..存储在 self.regionNavs 列表中.
+        print(regionSubNav)
+    regionSubNavs = list(dianping.regionNavSubs)
+    filePath = createNewDir()
+    with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
+        f.writelines(','.join(["id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
+        # 写入表头
+
+    for regionSubNav in regionSubNavs:
+        maxPage = dianping.getMaxPage("ch10",regionSubNav[0])       # 获取商圈区域的最大页数  大于50页的可能获取不准确
+        for i in range(1,int(maxPage) + 1):                                 # i 为页数
+            pois = dianping.getPoi("ch10",regionSubNav[0],str(i))           # 采集店铺信息
+            if pois :
+                with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
+                    f.writelines(pois)
 
 
 
@@ -354,46 +231,24 @@ def getAmapInfo(rect) :
 
 
 
-    ##########################################################以下为创建所有子矩形框的 shape图层文件
-    rectMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = [("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254))]     #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
-    dataSource = rectMap.newFile('rect.shp')                                    #创建文件
-    rectLayer = rectMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for i, subRect in enumerate(rectPoi.subRectPosCount) :                          #循环生成 rect 的  Polygon
-        ringList = [rectToPoint(subRect['rect'])]                                   #  ring的坐标对 列表
-        fieldValues = ['SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ]           #Polygon 对应的 表的值
-        rectMap.createPolygon(rectLayer, ringList, ('SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ))  #创建   Polygon  并添加到地图中
-    ##########################################################以上为创建所有子矩形框的 shape图层文件
-
-
-
-    ##########################################################以下为创建所有POI点 的 shape图层文件
-    pointMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = []
-    for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append((fieldName[:10],(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
-    fieldList = sorted(fieldList)                                   # fieldList 排序
-
-    dataSource = pointMap.newFile('point.shp')                                    #创建文件
-    pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for poi in rectPoi.pois :
-        fieldValues = []                                        #定义(清空)字段值的列表
-        for fieldName in fieldList :                            #生成 字段值的列表
-            value = poi.get(fieldName[0],'')                    #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
-            fieldValues.append(value)             ####!!!!
-        x = float(poi['location'].split(',')[0])
-        y = float(poi['location'].split(',')[1])
-        pointMap.createPoint(pointLayer,x,y,fieldValues)
-    ##########################################################以上为创建所有POI点 的 shape图层文件
 
 
 
 
 
 
-if __name__ == '__main__' :
-    #获取经纬度rect 范围内的 高德地图poi 建筑物边界 并生成shp 图形文件
-    #   [108.774989,34.41341], [109.149898,34.102978]
-    #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
-    rect =[[108.924463,34.269687], [108.946908,34.259437]]
-    getAmapInfo(rect)
+
+
+'''
+userAgent用户代理是必须的,否则:
+抱歉！页面无法访问......
+错误信息：
+    currentDate:2018-07-31 16:56:23
+    userIp:124.89.8.137, 10.72.40.11
+    userAgent:python-requests/2.12.4
+
+去大众点评首页
+
+
+'''
+

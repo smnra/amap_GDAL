@@ -2,6 +2,18 @@ import  os
 import arrow
 
 
+def isExistPath(path):
+    # 此函数用于判断路径是否存在
+    # 如果此文件存在 返回True 否则返回False
+    if os.path.exists(path):  # 判断路径是否存在
+        print(u"目标已存在:", path)  # 如果存在 打印路径已存在,
+        return True
+    else:
+        print(u"目标未找到:", path)  # 如果存在 打印路径已存在,
+        return False
+
+
+
 def createNewDir():
     #此函数用于在当前目录下生成一个YYYYMMDDHHmmss 格式的文件夹
     #  如果此文件存在 则返回文件夹路径

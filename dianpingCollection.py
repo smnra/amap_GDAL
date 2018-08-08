@@ -318,13 +318,22 @@ class getDianpingInfo():
                     toCsvlist = toCsvlist + pois
                     self.currentUrl = url   # 保存采集进度
 
-                    if count==20:
+                    if count==50:
                         with open(r'./tab/dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
                             f.writelines(toCsvlist)
                         with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                             f.writelines(self.currentUrl)
                         count = 0
                         toCsvlist = []
+
+            with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+                f.writelines(toCsvlist)
+            with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                f.writelines(self.currentUrl)
+            count = 0
+            toCsvlist = []
+
+
         except:
             with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
                 f.writelines(toCsvlist)

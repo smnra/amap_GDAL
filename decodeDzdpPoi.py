@@ -63,7 +63,7 @@ def decodePoi(C):
     L = (A + F - int(G)) / 2
     K = float(F - L) / 100000
     L = float(L) / 100000
-    return [str(L), str(K)]
+    return [K,L]
 
 if __name__ == '__main__':
     print(decodePoi('HBWDHEZURFVRGT'))
