@@ -32,7 +32,7 @@ from time import sleep
 import os
 
 class getDianpingInfo():
-    def __init__(self,cityName='xian'):
+    def __init__(self,cityName='xian',ch='ch10'):
         # url : http://www.dianping.com/xian/ch10/r8914o2    #  最后面的o2  是结果的排序方式
 
         self.headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -49,6 +49,10 @@ class getDianpingInfo():
 
         self.cityUrl = 'http://www.dianping.com/xian/ch8'   # 获取总的分类列表 dataCategorys 的 分类id
         self.city = cityName              # 要采集的城市 默认为西安
+        self.ch = ch
+        self.urlsFileName = r'./tab/' + self.city + '_' + self.ch + '_urls.dat'         #保存页面url的文件路径
+        self.poisFileName = r'./tab/' + self.city + '_' + self.ch + '_pois.csv'         #保存店铺POI信息的文件路径
+        self.currentUrlFileName = r'./tab/' + self.city + '_' + self.ch + '_currentUrl.csv'     # 保存进度的文件路径
         self.dataCategorys = [['ch10', '美食', 'http://www.dianping.com/xian/ch10'],
                               ['ch25', '电影演出赛事', 'http://www.dianping.com/xian/ch25'],
                               ['ch30', '休闲娱乐', 'http://www.dianping.com/xian/ch30'],
@@ -231,19 +235,20 @@ class getDianpingInfo():
                 for i,subDiv in enumerate(div):
                     poi = []
                     divStart = subDiv.find_all("div", attrs={'class':'comment'})
-                    name = aName[i].attrs["title"]
+                    name = aName[i].attrs["title"]       # 店铺名字
                     id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
                     starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
                     commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
                     if commentNum=='我要点评': commentNum='0'
                     avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
                     subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
+                    subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
                     address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
-                    localId = aLocal[i].attrs["data-poi"]                               # 加密过的 经纬度信息
+                    localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
                     local = decodePoi(localId)
                     local = self.translate.gcj_decrypt_exact(local[0],local[1])
                     local =  str(local["lon"]) + ";" + str(local["lat"])
-                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, address, localId, local]
+                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local]
                     pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
                     # self.pois.append(poi)
                 return pois
@@ -255,8 +260,8 @@ class getDianpingInfo():
             print('连接错误,重试....',"pageNum:",url )
             return self.getPoi(url)
 
-    def getCategoryData(self,ch):
-        if not isExistPath(r'./tab/'+ self.city + r'_urls.dat'):  # 如果不存在urls.dat 则启动获取 urls 的 方法
+    def getCategoryData(self):
+        if not isExistPath(self.urlsFileName):  # 如果不存在./tab/xian_ch10_urls.dat 则启动获取 urls 的 方法 urlsFileName
             dataCategorys = self.dataCategorys or self.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
             print(dataCategorys)
             for i,dataCategory in enumerate(dataCategorys):
@@ -274,23 +279,23 @@ class getDianpingInfo():
             self.urls.clear()            # 清空 poiUrls 列表
 
             for dataCategory in dataCategorys:
-                if ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
+                if self.ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
                     for dataCategorySub in dataCategory[3]:
                         g = dataCategorySub[0]  # 子分类 如: 'g110'
                         for regionSubNav in regionSubNavs:
                             r = regionSubNav[0]  # 子场景 如: 'r1765'
-                            maxPage = self.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
+                            maxPage = self.getMaxPage(self.ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
                             urls = []
                             if isinstance(maxPage,int):
                                 for i in range(1,maxPage):
-                                    url = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + str(i)
+                                    url = "http://www.dianping.com/" + self.city + r"/" + self.ch + r"/g" + g + "r" + r + "p" + str(i)
                                     self.urls.append(url + '\n')  # 将 所有要采集的子分类的url保存到 self.urls
                                     urls.append(url + '\n')
-                            with open(r'./tab/'+ self.city + r'_urls.dat', 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
+                            with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
                                 f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
 
         else:
-            with open(r'./tab/'+ self.city + r'_urls.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            with open(self.urlsFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 self.urls = f.readlines()  # 从文件 urls.dat 读取 所有要采集的子分类的url
 
     def main(self):
@@ -298,13 +303,13 @@ class getDianpingInfo():
         count =0
         toCsvlist = []
         try:
-            if not isExistPath(r'./tab/currentUrl.dat'):          # 如果不存在 currentUrl.dat
-                with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
-                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
+            if not isExistPath(self.currentUrlFileName):          # 如果不存在 currentUrl.dat
+                with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
+                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subCategory", "subRegion", "address", "locolId", "local", '\n']))
                     # 写入表头
                 startNum = 0
             else:
-                with open(r'./tab/currentUrl.dat', 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
+                with open(self.currentUrlFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
                     self.currentUrl = f.readline()  # 从文件 currentUrl.dat 读取采集进度.
                 if self.currentUrl in self.urls:
                     startNum = self.urls.index(self.currentUrl)
@@ -319,25 +324,25 @@ class getDianpingInfo():
                     self.currentUrl = url   # 保存采集进度
 
                     if count==50:
-                        with open(r'./tab/dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
+                        with open(self.poisFileName, 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
                             f.writelines(toCsvlist)
-                        with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                        with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                             f.writelines(self.currentUrl)
                         count = 0
                         toCsvlist = []
 
-            with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
                 f.writelines(toCsvlist)
-            with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 f.writelines(self.currentUrl)
             count = 0
             toCsvlist = []
 
 
         except:
-            with open(r'./tab/dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
                 f.writelines(toCsvlist)
-            with open(r'./tab/currentUrl.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 f.writelines(" ".join(self.currentUrl))
 
 
@@ -349,56 +354,49 @@ class getDianpingInfo():
 
 
 if __name__=="__main__":
-    dianping = getDianpingInfo('xian')
-    urlList = dianping.getCategoryData('ch10')
-    dianping.main()
-    # dianping.getPoi('ch10', '110','23886', '5')
+
+    chList = ['ch10', 'ch25', 'ch30', 'ch50', 'ch15', 'ch45', 'ch35', 'ch20', 'ch75', ]
+    for ch in chList:
+        dianping = getDianpingInfo('xian',ch)
+        urlList = dianping.getCategoryData()        # 确定存储采集页面url
+        dianping.main()                             # 主函数
+        # dianping.getPoi('ch10', '110','23886', '5')
+
+
+
+
+
+
+
+'''
+        self.dataCategorys = [['ch10', '美食', 'http://www.dianping.com/xian/ch10'],
+                              ['ch25', '电影演出赛事', 'http://www.dianping.com/xian/ch25'],
+                              ['ch30', '休闲娱乐', 'http://www.dianping.com/xian/ch30'],
+                              # ['ch60', '酒店', 'http://www.dianping.com/xian/ch60'],
+                              ['ch50', '丽人', 'http://www.dianping.com/xian/ch50'],
+                              ['ch15', 'K歌', 'http://www.dianping.com/xian/ch15'],
+                              ['ch45', '运动健身', 'http://www.dianping.com/xian/ch45'],
+                              ['ch35', '周边游', 'http://www.dianping.com/xian/ch35'],
+                              # ['ch70', '亲子', 'http://www.dianping.com/xian/ch70'],
+                              # ['ch55', '结婚', 'http://www.dianping.com/xian/ch55'],
+                              ['ch20', '购物', 'http://www.dianping.com/xian/ch20'],
+                              ['ch95', '宠物', 'http://www.dianping.com/xian/ch95'],
+                              ['ch80', '生活服务', 'http://www.dianping.com/xian/ch80'],
+                              ['ch75', '学习培训', 'http://www.dianping.com/xian/ch75'],
+                              ['ch65', '爱车', 'http://www.dianping.com/xian/ch65'],
+                              ['ch85', '医疗健康', 'http://www.dianping.com/xian/ch85'],
+                              ['ch90', '家居', 'http://www.dianping.com/xian/ch90'],
+                              ['ch40', '宴会', 'http://www.dianping.com/xian/ch40'],
+                              ['ch33954', '榛果民宿', 'http://www.dianping.com/xian/ch33954']]     # 要采集的
 
 
 '''
-    if not isExistPath(r'./tab/urls.dat'):          # 如果不存在urls.dat 则启动获取 urls 的 方法
-    dataCategorys = dianping.dataCategorys or dianping.getDataCategorys()    # 获取总的分类和 id 如: 美食,电影,休闲娱乐等...存储在self.dataCategorys 列表中
-    print(dataCategorys)
-    for i,dataCategory in enumerate(dataCategorys):
-        subDataCategorys = dianping.getSubDataCategorys(dataCategory,i)      #获取子分类 如 "火锅" "小吃快餐" "陕菜"...
-        print(subDataCategorys)
-
-    regionNav =  dianping.getRegionNavs()           # 获取 地市底下的区县列表 如 雁塔区 碑林区... 存储在 self.regionNavs 列表中
-    print(regionNav)
-    for i,regionNav in enumerate(dianping.regionNavs):
-        regionSubNav =  dianping.getRegionNavSubs(regionNav,i)  # 获取县区底下的 商圈 列表 如  碑林区的 钟楼 交大东校区等..存储在 self.regionNavs 列表中.
-        print(regionSubNav)
 
 
-    dataCategorys = list(dianping.dataCategorys)
-    regionSubNavs = list(dianping.regionNavSubs)
-    filePath = createNewDir()
-    with open(filePath + 'dzdp.csv', 'a+', encoding='utf-8', errors=None) as f:
-        f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subRegion", "address", "locolId", "local", '\n']))
-        # 写入表头
-    try:
-        for dataCategory in dataCategorys:
-            ch = dataCategory[0]                # 总分类如 : 'ch10'
-            for dataCategorySub in dataCategory[3]:
-                g = dataCategorySub[0]                  # 子分类 如: 'g110'
-                for regionSubNav in regionSubNavs:
-                    r = regionSubNav[0]                     # 子场景 如: 'r1765'
-                    maxPage = dianping.getMaxPage(ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
-                    toCsvlist = []
-                    for i in range(1,int(maxPage) + 1):      # i 为页数
-                        pois = dianping.getPoi(ch, g, r,str(i))           # 采集店铺信息
-                        if pois :
-                            toCsvlist = toCsvlist + pois
-                            dianping.currentUrl = "http://www.dianping.com/" + self.city + r"/" + ch + r"/g" + g + "r" + r + "p" + str(i)     # 保存采集进度
 
-                            
-                    with open(filePath + 'dzdp.csv', 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
-                        f.writelines(toCsvlist)
-    except:
-        with open('current.dat', 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-            f.writelines(" ".join(dianping.currentUrl))
 
-'''
+
+
 
 
 
