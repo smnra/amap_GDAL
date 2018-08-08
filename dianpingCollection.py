@@ -52,7 +52,7 @@ class getDianpingInfo():
         self.ch = ch
         self.urlsFileName = r'./tab/' + self.city + '_' + self.ch + '_urls.dat'         #保存页面url的文件路径
         self.poisFileName = r'./tab/' + self.city + '_' + self.ch + '_pois.csv'         #保存店铺POI信息的文件路径
-        self.currentUrlFileName = r'./tab/' + self.city + '_' + self.ch + '_currentUrl.csv'     # 保存进度的文件路径
+        self.currentUrlFileName = r'./tab/' + self.city + '_' + self.ch + '_currentUrl.dat'     # 保存进度的文件路径
         self.dataCategorys = [['ch10', '美食', 'http://www.dianping.com/xian/ch10'],
                               ['ch25', '电影演出赛事', 'http://www.dianping.com/xian/ch25'],
                               ['ch30', '休闲娱乐', 'http://www.dianping.com/xian/ch30'],
@@ -203,13 +203,17 @@ class getDianpingInfo():
             result = requests.get(url, timeout=10, headers=self.headers)
             if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
                 soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-                divPage = soup.find_all("div", class_="page")
-                if divPage :
-                    maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
-                    self.maxPage = int(maxPage)   # 存储在对象中
-                    print(url,": 共", maxPage ,"页.")
-                    return int(maxPage)
-                else: return 1
+                notFoundPage = soup.find_all("div", class_="not-found-words")
+                if notFoundPage:            #如果此分类底下没有店铺 则 返回 0
+                    return 0
+                else:
+                    divPage = soup.find_all("div", class_="page")
+                    if divPage :
+                        maxPage = soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"]  # 获取最大页数
+                        self.maxPage = int(maxPage)   # 存储在对象中
+                        print(url,": 共", maxPage ,"页.")
+                        return int(maxPage)
+                    else: return 1     # 如果没有找到 页码列表的 div , 说明只有1页 就返回 1
             else :
                 print("请检查验证码!")
         except:
@@ -287,7 +291,7 @@ class getDianpingInfo():
                             maxPage = self.getMaxPage(self.ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
                             urls = []
                             if isinstance(maxPage,int):
-                                for i in range(1,maxPage):
+                                for i in range(1,maxPage + 1):
                                     url = "http://www.dianping.com/" + self.city + r"/" + self.ch + r"/g" + g + "r" + r + "p" + str(i)
                                     self.urls.append(url + '\n')  # 将 所有要采集的子分类的url保存到 self.urls
                                     urls.append(url + '\n')
@@ -323,7 +327,7 @@ class getDianpingInfo():
                     toCsvlist = toCsvlist + pois
                     self.currentUrl = url   # 保存采集进度
 
-                    if count==50:
+                    if count>=100:
                         with open(self.poisFileName, 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
                             f.writelines(toCsvlist)
                         with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
@@ -354,8 +358,7 @@ class getDianpingInfo():
 
 
 if __name__=="__main__":
-
-    chList = ['ch10', 'ch25', 'ch30', 'ch50', 'ch15', 'ch45', 'ch35', 'ch20', 'ch75', ]
+    chList = ['ch10', 'ch25', 'ch30', 'ch50', 'ch15', 'ch45', 'ch35', 'ch20', 'ch75']
     for ch in chList:
         dianping = getDianpingInfo('xian',ch)
         urlList = dianping.getCategoryData()        # 确定存储采集页面url
