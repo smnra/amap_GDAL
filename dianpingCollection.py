@@ -205,6 +205,7 @@ class getDianpingInfo():
                 soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
                 notFoundPage = soup.find_all("div", class_="not-found-words")
                 if notFoundPage:            #如果此分类底下没有店铺 则 返回 0
+                    print(url, "此子分类无店铺信息!")
                     return 0
                 else:
                     divPage = soup.find_all("div", class_="page")
@@ -213,7 +214,9 @@ class getDianpingInfo():
                         self.maxPage = int(maxPage)   # 存储在对象中
                         print(url,": 共", maxPage ,"页.")
                         return int(maxPage)
-                    else: return 1     # 如果没有找到 页码列表的 div , 说明只有1页 就返回 1
+                    else:
+                        print(url, "仅有1页!")
+                        return 1     # 如果没有找到 页码列表的 div , 说明只有1页 就返回 1
             else :
                 print("请检查验证码!")
         except:
@@ -251,8 +254,9 @@ class getDianpingInfo():
                     localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
                     local = decodePoi(localId)
                     local = self.translate.gcj_decrypt_exact(local[0],local[1])
-                    local =  str(local["lon"]) + ";" + str(local["lat"])
-                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local]
+                    local = str(local["lon"]) + ";" + str(local["lat"])
+                    pageUrl = url
+                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
                     pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
                     # self.pois.append(poi)
                 return pois
@@ -309,7 +313,7 @@ class getDianpingInfo():
         try:
             if not isExistPath(self.currentUrlFileName):          # 如果不存在 currentUrl.dat
                 with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
-                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subCategory", "subRegion", "address", "locolId", "local", '\n']))
+                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subCategory", "subRegion", "address", "locolId", "local", "pageUrl", '\n']))
                     # 写入表头
                 startNum = 0
             else:
