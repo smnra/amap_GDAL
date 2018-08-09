@@ -227,7 +227,6 @@ class getDianpingInfo():
     def getPoi(self,url):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
         # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
-        print(url)
         self.changeUserAgnet()
         self.clearCookie()
         try:
@@ -327,6 +326,7 @@ class getDianpingInfo():
             for i,url in enumerate(self.urls[startNum:]):
                 count = count + 1
                 pois = self.getPoi(url.strip())           # 采集店铺信息
+                print(i, url, pois)
                 if pois :
                     toCsvlist = toCsvlist + pois
                     self.currentUrl = url   # 保存采集进度
