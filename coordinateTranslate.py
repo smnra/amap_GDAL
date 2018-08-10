@@ -77,7 +77,7 @@ class GPS():
             else : mLon = wgsLon
             i=i+1
             if i>10000 : break
-        return {'lat': wgsLat, 'lon': wgsLon}
+        return {'lat': round(wgsLat,7), 'lon': round(wgsLon,7)}
 
 
     def gcj_bd(self, gcjLat, gcjLon):

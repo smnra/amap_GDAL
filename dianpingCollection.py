@@ -233,36 +233,45 @@ class getDianpingInfo():
             result = requests.get(url, timeout=10, headers=self.headers)
             if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
                 soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-                div = soup.find_all("div",class_="txt")
-                if div :                                            # 如果返回结果中 有class="txt" 的属性
-                    divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
-                    aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
-                    aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
-                    pois = []
-                    for i,subDiv in enumerate(div):
-                        poi = []
-                        divStart = subDiv.find_all("div", attrs={'class':'comment'})
-                        name = aName[i].attrs["title"]       # 店铺名字
-                        id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
-                        starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
-                        commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
-                        if commentNum=='我要点评': commentNum='0'
-                        avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
-                        subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
-                        subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
-                        address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
-                        localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
-                        local = decodePoi(localId)
-                        local = self.translate.gcj_decrypt_exact(local[0],local[1])
-                        local = str(local["lon"]) + ";" + str(local["lat"])
-                        pageUrl = url
-                        poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
-                        pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
-                        # self.pois.append(poi)
-                    return pois
+                isSuccReq = soup.find_all("div", class_="content-wrap")
+                if isSuccReq:
+                    div = soup.find_all("div",class_="txt")
+                    if div :                                            # 如果返回结果中 有class="txt" 的属性
+                        divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
+                        aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
+                        aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
+                        pois = []
+                        for i,subDiv in enumerate(div):
+                            poi = []
+                            divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                            name = aName[i].attrs["title"]       # 店铺名字
+                            id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
+                            starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
+                            commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
+                            if commentNum=='我要点评': commentNum='0'
+                            avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
+                            subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
+                            subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
+                            address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
+                            localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
+                            local = decodePoi(localId)
+                            local = self.translate.gcj_decrypt_exact(local[0],local[1])
+                            local = str(local["lon"]) + ";" + str(local["lat"])
+                            pageUrl = url
+                            poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
+                            pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
+                            # self.pois.append(poi)
+                        return pois
+                    elif soup.find_all("div", class_="not-found"):
+                        print("没有找到符合条件的商户～")
+                        return None
+                    else:
+                        print("网站反爬虫机制! 重试....")
+                        return  self.getPoi(url) # 此处主要为反爬虫
+
                 else:
                     print("网站反爬虫机制! 重试....")
-                    return  self.getPoi(url) # 此处主要为反爬虫
+                    return self.getPoi(url)  # 此处主要为反爬虫
             else :
                 print("getPoi Error! 请检查验证码! ")
                 sleep(randint(10,20)*0.123)
@@ -318,50 +327,44 @@ class getDianpingInfo():
         filePath = createNewDir()
         count =0
         toCsvlist = []
-        try:
-            if not isExistPath(self.currentUrlFileName):          # 如果不存在 currentUrl.dat
-                with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
-                    f.writelines(','.join(["name", "id", "starNum", "commentNum", "avgPrice", "subCategory", "subRegion", "address", "locolId", "local", "pageUrl", '\n']))
-                    # 写入表头
-                startNum = 0
+        if not isExistPath(self.currentUrlFileName):  # 如果不存在 currentUrl.dat
+            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
+                f.writelines(','.join(
+                    ["name", "id", "starNum", "commentNum", "avgPrice", "subCategory", "subRegion", "address",
+                     "locolId", "local", "pageUrl", '\n']))
+                # 写入表头
+            startNum = 0
+        else:
+            with open(self.currentUrlFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
+                self.currentUrl = f.readline()  # 从文件 currentUrl.dat 读取采集进度.
+            if self.currentUrl in self.urls:
+                startNum = self.urls.index(self.currentUrl)
             else:
-                with open(self.currentUrlFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
-                    self.currentUrl = f.readline()  # 从文件 currentUrl.dat 读取采集进度.
-                if self.currentUrl in self.urls:
-                    startNum = self.urls.index(self.currentUrl)
-                else:
-                    startNum = 0
+                startNum = 0
 
-            for i,url in enumerate(self.urls[startNum:]):
+            for i, url in enumerate(self.urls[startNum:]):
                 count = count + 1
-                pois = self.getPoi(url.strip())           # 采集店铺信息
-                print( i, url, len(pois), '\n', pois)
-                if pois :
-                    toCsvlist = toCsvlist + pois
-                    self.currentUrl = url   # 保存采集进度
+                try:
+                    pois = self.getPoi(url.strip())  # 采集店铺信息
+                    print(i, url, '\n', pois)
+                    if pois:
+                        toCsvlist = toCsvlist + pois
+                        self.currentUrl = url  # 保存采集进度
 
-                    if count>=50:
-                        with open(self.poisFileName, 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
-                            f.writelines(toCsvlist)
-                        with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                            f.writelines(self.currentUrl)
-                        count = 0
-                        toCsvlist = []
+                        if count >= 50:
+                            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+                                f.writelines(toCsvlist)
+                            with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                                f.writelines(self.currentUrl)
+                            count = 0
+                            toCsvlist = []
+                except  Exception as e:  # 遇到Error1执行下面的语句，在python2中写成except  Error1，e
+                    print("main() 错误：", e)
 
-            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
-                f.writelines(toCsvlist)
-            with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                f.writelines(self.currentUrl)
-            count = 0
-            toCsvlist = []
-        except  Exception as e:  # 遇到Error1执行下面的语句，在python2中写成except  Error1，e
-            print("main() 错误：", e)
-
-        finally:
-            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
-                f.writelines(toCsvlist)
-            with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                f.writelines(self.currentUrl)
+        with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
+            f.writelines(toCsvlist)
+        with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            f.writelines(self.currentUrl)
 
 
 
@@ -372,7 +375,9 @@ class getDianpingInfo():
 
 
 if __name__=="__main__":
-    chList = [ 'ch20', 'ch75']
+     # ['ch10', 'ch25', 'ch30', 'ch60', 'ch50', 'ch15', 'ch45', 'ch35', 'ch70', 'ch55', 'ch20', 'ch95', 'ch80', 'ch75', 'ch65', 'ch85', 'ch90', 'ch40', 'ch33954']
+    chList =  ['ch25', 'ch30', 'ch60', 'ch50', 'ch15', 'ch45', 'ch35', 'ch70', 'ch55', 'ch20', 'ch95', 'ch80', 'ch75', 'ch65', 'ch85', 'ch90', 'ch40', 'ch33954']
+
     for ch in chList:
         dianping = getDianpingInfo('xian',ch)
         urlList = dianping.getCategoryData()        # 确定存储采集页面url
