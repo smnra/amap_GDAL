@@ -234,31 +234,35 @@ class getDianpingInfo():
             if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
                 soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
                 div = soup.find_all("div",class_="txt")
-                divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
-                aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
-                aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
-                pois = []
-                for i,subDiv in enumerate(div):
-                    poi = []
-                    divStart = subDiv.find_all("div", attrs={'class':'comment'})
-                    name = aName[i].attrs["title"]       # 店铺名字
-                    id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
-                    starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
-                    commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
-                    if commentNum=='我要点评': commentNum='0'
-                    avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
-                    subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
-                    subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
-                    address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
-                    localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
-                    local = decodePoi(localId)
-                    local = self.translate.gcj_decrypt_exact(local[0],local[1])
-                    local = str(local["lon"]) + ";" + str(local["lat"])
-                    pageUrl = url
-                    poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
-                    pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
-                    # self.pois.append(poi)
-                return pois
+                if div :                                            # 如果返回结果中 有class="txt" 的属性
+                    divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
+                    aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
+                    aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
+                    pois = []
+                    for i,subDiv in enumerate(div):
+                        poi = []
+                        divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                        name = aName[i].attrs["title"]       # 店铺名字
+                        id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
+                        starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
+                        commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
+                        if commentNum=='我要点评': commentNum='0'
+                        avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
+                        subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
+                        subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
+                        address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
+                        localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
+                        local = decodePoi(localId)
+                        local = self.translate.gcj_decrypt_exact(local[0],local[1])
+                        local = str(local["lon"]) + ";" + str(local["lat"])
+                        pageUrl = url
+                        poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
+                        pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
+                        # self.pois.append(poi)
+                    return pois
+                else:
+                    print("网站反爬虫机制! 重试....")
+                    return  self.getPoi(url) # 此处主要为反爬虫
             else :
                 print("getPoi Error! 请检查验证码! ")
                 sleep(randint(10,20)*0.123)
