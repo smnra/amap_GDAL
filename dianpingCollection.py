@@ -108,7 +108,7 @@ class getDianpingInfo():
                 self.dataCategorys.append([key, value, a.attrs['href']])
             return list(self.dataCategorys)
         else:
-            print("请检查验证码!")
+            print("getDataCategorys Error! 请检查验证码!")
             return self.getDataCategorys()
 
     def getSubDataCategorys(self,dataCategorys,i):
@@ -134,10 +134,10 @@ class getDianpingInfo():
                     return list(self.dataCategorys[i])
                 else: return None
             else:
-                print("请检查验证码!")
+                print("getDataCategorys Error! 请检查验证码!")
                 return self.getSubDataCategorys(dataCategorys,i)
         except:
-            print("连接错误,重试.....!")
+            print("getDataCategorys Error! 连接错误,重试.....!")
             return self.getSubDataCategorys(dataCategorys,i)
 
     def getRegionNavs(self):
@@ -159,10 +159,10 @@ class getDianpingInfo():
                         self.regionNavs.append([key,name,url])
                 return self.regionNavs
             else :
-                print("请检查验证码!")
+                print("getRegionNavs Error! 请检查验证码!")
                 return self.getRegionNavs()
         except:
-            print("连接错误,重试.....!")
+            print("getRegionNavs Error! 连接错误,重试.....!")
             return self.getRegionNavs()
 
 
@@ -187,10 +187,10 @@ class getDianpingInfo():
                 self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
                 return list(subRegions)
             else:
-                print("请检查验证码!")
+                print("getRegionNavSubs Error! 请检查验证码!")
                 return self.getRegionNavSubs(regionNav,i)
         except:
-            print("连接错误,重试.....!")
+            print("getRegionNavSubs Error! 连接错误,重试.....!")
             return self.getRegionNavSubs(regionNav,i)
 
     def getMaxPage(self,ch, g, r):
@@ -218,9 +218,9 @@ class getDianpingInfo():
                         print(url, "仅有1页!")
                         return 1     # 如果没有找到 页码列表的 div , 说明只有1页 就返回 1
             else :
-                print("请检查验证码!")
+                print("getMaxPage Error! 请检查验证码!")
         except:
-            print('连接错误,重试....',"url:",url )
+            print('getMaxPage Error! 连接错误,重试....',"url:",url )
             return self.getMaxPage(ch, g, r)
   
 
@@ -260,11 +260,12 @@ class getDianpingInfo():
                     # self.pois.append(poi)
                 return pois
             else :
-                print("请检查验证码!")
+                print("getPoi Error! 请检查验证码! ")
+                sleep(randint(10,20)*0.123)
                 return self.getPoi(url)
 
         except:
-            print('连接错误,重试....',"pageNum:",url )
+            print('getPoi Error! 连接错误,重试....',"pageNum:",url )
             return self.getPoi(url)
 
     def getCategoryData(self):
@@ -284,23 +285,27 @@ class getDianpingInfo():
             dataCategorys = list(self.dataCategorys)
             regionSubNavs = list(self.regionNavSubs)
             self.urls.clear()            # 清空 poiUrls 列表
-
-            for dataCategory in dataCategorys:
-                if self.ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
-                    for dataCategorySub in dataCategory[3]:
-                        g = dataCategorySub[0]  # 子分类 如: 'g110'
-                        for regionSubNav in regionSubNavs:
-                            r = regionSubNav[0]  # 子场景 如: 'r1765'
-                            maxPage = self.getMaxPage(self.ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
-                            urls = []
-                            if isinstance(maxPage,int):
-                                for i in range(1,maxPage + 1):
-                                    url = "http://www.dianping.com/" + self.city + r"/" + self.ch + r"/g" + g + "r" + r + "p" + str(i)
-                                    self.urls.append(url + '\n')  # 将 所有要采集的子分类的url保存到 self.urls
-                                    urls.append(url + '\n')
-                            with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
-                                f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
-
+            try :
+                for dataCategory in dataCategorys:
+                    if self.ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
+                        for dataCategorySub in dataCategory[3]:
+                            g = dataCategorySub[0]  # 子分类 如: 'g110'
+                            for regionSubNav in regionSubNavs:
+                                r = regionSubNav[0]  # 子场景 如: 'r1765'
+                                maxPage = self.getMaxPage(self.ch, g, r)  # 获取商圈区域的最大页数  大于50页的可能获取不准确
+                                urls = []
+                                if isinstance(maxPage,int):
+                                    for i in range(1,maxPage + 1):
+                                        url = "http://www.dianping.com/" + self.city + r"/" + self.ch + r"/g" + g + "r" + r + "p" + str(i)
+                                        self.urls.append(url + '\n')  # 将 所有要采集的子分类的url保存到 self.urls
+                                        urls.append(url + '\n')
+                                with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
+                                    f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
+            except  Exception as e:
+                print("getCategoryData() 错误：",e)
+            finally:
+                with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
+                    f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
         else:
             with open(self.urlsFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 self.urls = f.readlines()  # 从文件 urls.dat 读取 所有要采集的子分类的url
@@ -326,12 +331,12 @@ class getDianpingInfo():
             for i,url in enumerate(self.urls[startNum:]):
                 count = count + 1
                 pois = self.getPoi(url.strip())           # 采集店铺信息
-                print(i, url, pois)
+                print( i, url, len(pois), '\n', pois)
                 if pois :
                     toCsvlist = toCsvlist + pois
                     self.currentUrl = url   # 保存采集进度
 
-                    if count>=100:
+                    if count>=50:
                         with open(self.poisFileName, 'a+',encoding='utf-8', errors=None) as f:    # 写入csv文件
                             f.writelines(toCsvlist)
                         with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
@@ -345,13 +350,14 @@ class getDianpingInfo():
                 f.writelines(self.currentUrl)
             count = 0
             toCsvlist = []
+        except  Exception as e:  # 遇到Error1执行下面的语句，在python2中写成except  Error1，e
+            print("main() 错误：", e)
 
-
-        except:
+        finally:
             with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:  # 写入csv文件
                 f.writelines(toCsvlist)
             with open(self.currentUrlFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                f.writelines(" ".join(self.currentUrl))
+                f.writelines(self.currentUrl)
 
 
 
@@ -362,7 +368,7 @@ class getDianpingInfo():
 
 
 if __name__=="__main__":
-    chList = ['ch10', 'ch25', 'ch30', 'ch50', 'ch15', 'ch45', 'ch35', 'ch20', 'ch75']
+    chList = [ 'ch20', 'ch75']
     for ch in chList:
         dianping = getDianpingInfo('xian',ch)
         urlList = dianping.getCategoryData()        # 确定存储采集页面url
