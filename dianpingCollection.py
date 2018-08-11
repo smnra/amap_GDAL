@@ -30,6 +30,8 @@ from coordinateTranslate import *
 from random import randint
 from time import sleep
 import os
+import sys
+sys.setrecursionlimit(1500)  # set the maximum depth as 1500
 
 class getDianpingInfo():
     def __init__(self,cityName='xian',ch='ch10'):
@@ -155,7 +157,7 @@ class getDianpingInfo():
                     if "http" in a.attrs['href']:
                         key = a.attrs['data-cat-id']
                         name = a.attrs['data-click-title']
-                        url = a.attrs['href']
+                        url = 'http://www.dianping.com/' + self.city + r'/' + self.ch + r'/r' + key
                         self.regionNavs.append([key,name,url])
                 return self.regionNavs
             else :
@@ -164,6 +166,7 @@ class getDianpingInfo():
         except:
             print("getRegionNavs Error! 连接错误,重试.....!")
             return self.getRegionNavs()
+
 
 
     def getRegionNavSubs(self,regionNav,i):
@@ -176,22 +179,26 @@ class getDianpingInfo():
             if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
                 soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
                 div = soup.find_all("div", attrs={'id': "region-nav-sub"})
-                div = div[0].find_all("a", attrs={'data-cat-id': True})
-                for a in div:
-                    key = a.attrs['data-cat-id']
-                    name = a.find("span").text
-                    url = a.attrs['href']
-                    subRegions.append(list([key, name, url]))
-                    self.regionNavSubs.append(list([key, name, url]))       #存储在self.regionNavSubs 对象中
-                # maxPage = int(soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"])    # 获取最大页数
-                self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
-                return list(subRegions)
+                if div :
+                    div = div[0].find_all("a", attrs={'data-cat-id': True})
+                    for a in div:
+                        key = a.attrs['data-cat-id']
+                        name = a.find("span").text
+                        url = a.attrs['href']
+                        subRegions.append(list([key, name, url]))
+                        self.regionNavSubs.append(list([key, name, url]))       #存储在self.regionNavSubs 对象中
+                    # maxPage = int(soup.find_all("div", class_="page")[0].find_all("a")[-2].attrs["title"])    # 获取最大页数
+                    self.regionNavs[i].append(list(subRegions))                 # 追加到self.regionNavs[i] 列表
+                    return list(subRegions)
+                else:
+                    return  None
             else:
                 print("getRegionNavSubs Error! 请检查验证码!")
                 return self.getRegionNavSubs(regionNav,i)
-        except:
-            print("getRegionNavSubs Error! 连接错误,重试.....!")
+        except  Exception as e:
+            print("getRegionNavSubs() 错误：", e)
             return self.getRegionNavSubs(regionNav,i)
+
 
     def getMaxPage(self,ch, g, r):
         # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
@@ -224,62 +231,77 @@ class getDianpingInfo():
             return self.getMaxPage(ch, g, r)
   
 
-    def getPoi(self,url):
-        # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
-        # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
-        self.changeUserAgnet()
-        self.clearCookie()
-        try:
-            result = requests.get(url, timeout=10, headers=self.headers)
-            if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
-                soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
-                isSuccReq = soup.find_all("div", class_="content-wrap")
-                if isSuccReq:
-                    div = soup.find_all("div",class_="txt")
-                    if div :                                            # 如果返回结果中 有class="txt" 的属性
-                        divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
-                        aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
-                        aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
-                        pois = []
-                        for i,subDiv in enumerate(div):
-                            poi = []
-                            divStart = subDiv.find_all("div", attrs={'class':'comment'})
-                            name = aName[i].attrs["title"]       # 店铺名字
-                            id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
-                            starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
-                            commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
-                            if commentNum=='我要点评': commentNum='0'
-                            avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
-                            subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
-                            subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
-                            address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
-                            localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
-                            local = decodePoi(localId)
-                            local = self.translate.gcj_decrypt_exact(local[0],local[1])
-                            local = str(local["lon"]) + ";" + str(local["lat"])
-                            pageUrl = url
-                            poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
-                            pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
-                            # self.pois.append(poi)
-                        return pois
-                    elif soup.find_all("div", class_="not-found"):
-                        print("没有找到符合条件的商户～")
-                        return None
+    def getPoi(self,url,maxdepth):
+        if maxdepth==3:
+            return 0
+        else:
+
+            # dataCategory 为 poi的大分类id  regionNavSub 为商圈的id
+            # "ch10" 代表 poi 美食分类. "8914" 代表 科技路沿线 商圈
+            self.changeUserAgnet()
+            self.clearCookie()
+            try:
+                result = requests.get(url, timeout=10, headers=self.headers)
+                if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+                    soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+                    isSuccReq = soup.find_all("div", class_="content-wrap")
+                    if isSuccReq:
+                        div = soup.find_all("div",class_="txt")
+                        if div :                                            # 如果返回结果中 有class="txt" 的属性
+                            divAddress = soup.find_all("div", attrs={'class': "tag-addr"})
+                            aLocal = soup.find_all("a", attrs={'data-click-name': "shop_map_click"})
+                            aName = soup.find_all("a", attrs={'data-click-name': "shop_title_click"})
+                            pois = []
+                            for i,subDiv in enumerate(div):
+                                poi = []
+                                divStart = subDiv.find_all("div", attrs={'class':'comment'})
+                                name = aName[i].attrs["title"]       # 店铺名字
+                                id = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).attrs["data-shopid"]   #shop id
+                                starNum = divStart[0].find("span",attrs={"class":True}).attrs["class"][-1].replace("sml-str","")   # 获取星级数字
+                                commentNum = divStart[0].find("a",attrs={"data-click-name":"shop_iwant_review_click"}).text.split("\n")[1].strip()         # 获取评论数
+                                if commentNum=='我要点评': commentNum='0'
+                                avgPrice = divStart[0].find("a",attrs={"class":"mean-price"}).text.replace('\n','').replace(' ','').replace('人均','')       # 获取平均消费
+                                subRegion = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_region_click'}).text         # 商圈名字
+                                subCategory = divAddress[i].find("a", attrs={'data-click-name':'shop_tag_cate_click'}).text         # 子分类
+                                address = divAddress[i].find("span", attrs={'class':'addr'}).text                                       # 地址
+                                localId = aLocal[i].attrs["data-poi"]            # 加密过的 经纬度信息
+                                local = decodePoi(localId)
+                                local = self.translate.gcj_decrypt_exact(local[0],local[1])
+                                local = str(local["lon"]) + ";" + str(local["lat"])
+                                pageUrl = url
+                                poi = [name, id, starNum, commentNum, avgPrice, subRegion, subCategory, address, localId, local, pageUrl]
+                                pois.append(','.join(['"' + p + '"' for p in poi] + ['\n']))
+                                # self.pois.append(poi)
+                            return pois
+                        elif soup.find_all("div", class_="not-found"):
+                            print("没有找到符合条件的商户～")
+                            return None
+                        else:
+                            print("网站反爬虫机制! 重试....")
+                            sleep(randint(10, 15) * 0.123)
+                            if maxdepth ==1:
+                                maxdepth =200
+                            return  self.getPoi(url, maxdepth-1) # 此处主要为反爬虫
+
                     else:
                         print("网站反爬虫机制! 重试....")
-                        return  self.getPoi(url) # 此处主要为反爬虫
+                        sleep(randint(10, 15) * 0.123)
+                        if maxdepth == 1:
+                            maxdepth = 200
+                        return self.getPoi(url, maxdepth - 1)  # 此处主要为反爬虫
+                else :
+                    print("getPoi Error! 请检查验证码! ")
+                    sleep(randint(10,15)*0.123)
+                    if maxdepth == 1:
+                        maxdepth = 200
+                    return self.getPoi(url, maxdepth - 1)  # 此处主要为反爬虫
 
-                else:
-                    print("网站反爬虫机制! 重试....")
-                    return self.getPoi(url)  # 此处主要为反爬虫
-            else :
-                print("getPoi Error! 请检查验证码! ")
-                sleep(randint(10,20)*0.123)
-                return self.getPoi(url)
-
-        except:
-            print('getPoi Error! 连接错误,重试....',"pageNum:",url )
-            return self.getPoi(url)
+            except:
+                print('getPoi Error! 连接错误,重试....',"pageNum:",url )
+                sleep(randint(10, 15) * 0.123)
+                if maxdepth == 1:
+                    maxdepth = 200
+                return self.getPoi(url, maxdepth - 1)  # 此处主要为反爬虫
 
     def getCategoryData(self):
         if not isExistPath(self.urlsFileName):  # 如果不存在./tab/xian_ch10_urls.dat 则启动获取 urls 的 方法 urlsFileName
@@ -298,9 +320,10 @@ class getDianpingInfo():
             dataCategorys = list(self.dataCategorys)
             regionSubNavs = list(self.regionNavSubs)
             self.urls.clear()            # 清空 poiUrls 列表
+            urls = []
             try :
                 for dataCategory in dataCategorys:
-                    if self.ch in dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
+                    if self.ch==dataCategory[0]:  # 总分类如 : 'ch10'  过滤 ch 如果等于第二个参数
                         for dataCategorySub in dataCategory[3]:
                             g = dataCategorySub[0]  # 子分类 如: 'g110'
                             for regionSubNav in regionSubNavs:
@@ -317,8 +340,9 @@ class getDianpingInfo():
             except  Exception as e:
                 print("getCategoryData() 错误：",e)
             finally:
-                with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
-                    f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
+                if urls :
+                    with open(self.urlsFileName, 'a+', encoding='utf-8', errors=None) as f:  # 将url列表写入文件
+                        f.writelines(urls)  # 将 所有要采集的子分类的url 写入到文件 urls.dat
         else:
             with open(self.urlsFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
                 self.urls = f.readlines()  # 从文件 urls.dat 读取 所有要采集的子分类的url
@@ -345,7 +369,7 @@ class getDianpingInfo():
             for i, url in enumerate(self.urls[startNum:]):
                 count = count + 1
                 try:
-                    pois = self.getPoi(url.strip())  # 采集店铺信息
+                    pois = self.getPoi(url.strip(),2000)  # 采集店铺信息
                     print(i, url, '\n', pois)
                     if pois:
                         toCsvlist = toCsvlist + pois
@@ -376,7 +400,7 @@ class getDianpingInfo():
 
 if __name__=="__main__":
      # ['ch10', 'ch25', 'ch30', 'ch60', 'ch50', 'ch15', 'ch45', 'ch35', 'ch70', 'ch55', 'ch20', 'ch95', 'ch80', 'ch75', 'ch65', 'ch85', 'ch90', 'ch40', 'ch33954']
-    chList =  ['ch25', 'ch30', 'ch60', 'ch50', 'ch15', 'ch45', 'ch35', 'ch70', 'ch55', 'ch20', 'ch95', 'ch80', 'ch75', 'ch65', 'ch85', 'ch90', 'ch40', 'ch33954']
+    chList =  [ 'ch20', 'ch95', 'ch80', 'ch75', 'ch65', 'ch85', 'ch90', 'ch40', 'ch33954']
 
     for ch in chList:
         dianping = getDianpingInfo('xian',ch)
@@ -410,36 +434,6 @@ if __name__=="__main__":
                               ['ch90', '家居', 'http://www.dianping.com/xian/ch90'],
                               ['ch40', '宴会', 'http://www.dianping.com/xian/ch40'],
                               ['ch33954', '榛果民宿', 'http://www.dianping.com/xian/ch33954']]     # 要采集的
-
-
-'''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-userAgent用户代理是必须的,否则:
-抱歉！页面无法访问......
-错误信息：
-    currentDate:2018-07-31 16:56:23
-    userIp:124.89.8.137, 10.72.40.11
-    userAgent:python-requests/2.12.4
-
-去大众点评首页
 
 
 '''
