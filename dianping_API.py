@@ -23,6 +23,9 @@ from random import randint
 from time import sleep
 import os
 import sys
+import getProxyFromProxyPools as proxy
+import csv
+
 sys.setrecursionlimit(1500)  # set the maximum depth as 1500
 
 class getDianpingInfoAPI():
@@ -42,15 +45,49 @@ class getDianpingInfoAPI():
                         }
 
         self.cityId = cityId              # 要采集的城市的ID  默认为西安 id = 17
-        self.cityIds = []
-        self.ch = []                      #　ch  总分类列表
-
+        self.ua=UserAgent()     # 初始化 随机'User-Agent' 方法
+        self.translate = GPS()      # 初始化坐标系转化
+        self.getproxy = proxy.ChangeProxy().getProxy()        #初始化类对象 ChangeProxy()的方法 getProxy()
+        self.proxies = None         # requests 的 get()方法的 附加参数
         self.categorysUrl = 'http://mapi.dianping.com/searchshop.json?sortid=3&cityid=' + str(self.cityId)
-        self.poiPageUrl = 'http://mapi.dianping.com/searchshop.json?start=0&categoryid=55&sortid=3&cityid=17&regionid=1754'
+
+        self.poiPageUrl = 'http://mapi.dianping.com/searchshop.json'
+        self.parameters =  {'start' : '0',
+                            'categoryid' : '55',
+                            'sortid' : '3',
+                            'cityid' : '17',
+                            'limit' :  '50',
+                            'regionid' : '1754'
+                            }
+
+        self.metroNavs = []  # 地铁站分类
+        self.recordCount = []   # POI 总个数
+        self.regionNavs = []   # 区域分类
+        self.regionsHot = []  # 热门区域
+        self.regionsOne = [] # 一级区域
+        self.regionsOneSelf = [] # 一级区域底下包含全部子poi的子区域
+        self.regionsTwo = [] # 一级区域底下包含全部子poi的子区域
+
+        self.categoryNavs = [] # POI类型分类
+        # self.categorysHot = [] # 热门区域
+        self.categorysOne = [] # 一级区域
+        self.categorysOneSelf = [] # 一级区域底下包含全部子poi的子区域
+        self.categorysTwo = [] # 一级区域底下包含全部子poi的子区域
+
+        self.nextStartIndex = 0
+        self.recordCount = 1
+        self.pois = []  #保存一个分类的 poi信息
 
         # self.urlsFileName = r'./tab/' + self.city + '_' + self.ch + '_urls.dat'         #保存页面url的文件路径
         # self.poisFileName = r'./tab/' + self.city + '_' + self.ch + '_pois.csv'         #保存店铺POI信息的文件路径
         # self.currentUrlFileName = r'./tab/' + self.city + '_' + self.ch + '_currentUrl.dat'     # 保存进度的文件路径
+
+    def changeProxy(self):
+        getProxy = self.getproxy()
+        http = "http://" + getProxy[0] + ":" + getProxy[1]
+        https = "https://" + getProxy[0] + ":" + getProxy[1]
+        self.proxies = {"http": http, "https": https, }
+        return self.proxies
 
 
 
@@ -60,52 +97,124 @@ class getDianpingInfoAPI():
     def clearCookie(self):
         self.headers['Cookie'] = ""
 
-    def getDataCategorys(self):
-        # dataCategorys 获取POI总的分类
-        self.dataCategorys = []
-        self.changeUserAgnet()
-        self.clearCookie()
-        url = 'http://www.dianping.com/' + self.city + '/ch8'
-        result = requests.get(url, timeout=10, headers=self.headers )
-        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
-            soup = BeautifulSoup(result.text, 'html.parser')     #将返回的网页转化为bs4 对象
-            div = soup.find_all("div", class_="nc-items",attrs={'id':False})
-            # 查找 类名为"nc-items",并且 不存在 id 属性的' div 标签
-            for a in div[0].findAll("a"):
-                # 遍历 div列表的第一个元素 包含的所有的 <A> 标签
-                value = a.find("span").text        # a标签的子标签 span 标签 的文本值
-                key = a.attrs['href'].split("/")[-1]    # 把a标签的 herf属性的值 用/分割 为列表 取最后一个元素
-                self.dataCategorys.append([key, value, a.attrs['href']])
-            return list(self.dataCategorys)
-        else:
-            print("getDataCategorys Error! 请检查验证码!")
-            return self.getDataCategorys()
-
-
-
+    def changeParameters(self,parameters):
+        for parameter in list(parameters.keys()):
+            self.parameters[parameter] = parameters[parameter]
+            print("parameters已更改:\n",self.parameters[parameter])
 
     def getCategorys(self):
         # 获取POI总的分类
         self.changeUserAgnet()
         self.clearCookie()
         url = self.categorysUrl
-        result = requests.get(url, timeout=10, headers=self.headers)
+        result = requests.get(url, timeout=10, headers=self.headers, proxies=self.proxies)
         if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
             resultJson = result.json()
             keys = list(resultJson.keys())
+
             if 'metroNavs' in keys:
                 self.metroNavs = resultJson['metroNavs']    # 地铁站分类
+
             if 'recordCount' in keys:
-                self.metroNavs = resultJson['recordCount']    # POI 个数
+                self.recordCount = resultJson['recordCount']    # POI 个数
+
             if 'regionNavs' in keys:
-                self.metroNavs = resultJson['regionNavs']    # 区域分类
+                self.regionNavs = resultJson['regionNavs']    # 区域分类
+                self.regionsHot = [regionNav for regionNav in self.regionNavs if regionNav['parentId']==-10000] # 热门区域
+                self.regionsOne = [regionNav for regionNav in self.regionNavs if regionNav['parentId']==0] # 一级区域
+                self.regionsOneSelf = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] == regionNav['id']]  # 一级区域底下包含全部子poi的子区域
+                self.regionsTwo = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] not in [0,-10000,regionNav['id']]]  # 一级区域底下包含全部子poi的子区域
+
+            if 'categoryNavs' in keys:
+                self.categoryNavs = resultJson['categoryNavs']    # POI类型分类
+                # self.categorysHot = [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']==0 and categoryNav['id']!=0] # 热门区域
+                self.categorysOne =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']==0 and categoryNav['id']!=0] # 一级区域
+                self.categorysOneSelf =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']== categoryNav['id']]  # 一级区域底下包含全部子poi的子区域
+                self.categorysTwo = [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']!= categoryNav['id'] and categoryNav['parentId']!=0]  # 一级区域底下包含全部子poi的子区域
             return
         else:
-            print("getDataCategorys Error! 请检查验证码!")
-            return self.getDataCategorys()
+            print("getCategorys Error! 请检查验证码!")
+            self.changeProxy()    # 更改代理
+            return self.getDataCategorys()     #迭代本方法
+
+
+
+    def getPagePois(self):
+        # 获取POI总的分类
+        self.changeUserAgnet()              # 随机更换 UserAgnet
+        self.clearCookie()                  # 清除 Cookies
+        #self.changeParameters(params)       # 设置 get() 方法的 params 附加参数
+        result = requests.get(self.poiPageUrl, timeout=10, headers=self.headers, params = self.parameters, proxies=self.proxies)
+        if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
+            resultJson = result.json()          # 把json 转化为字典
+            keys = list(resultJson.keys())       # 字典的key的 列表
+
+            if 'nextStartIndex' in keys:
+                self.nextStartIndex = resultJson['nextStartIndex']      # 更新下一次开始的start参数
+            if 'recordCount' in keys:
+                self.recordCount = resultJson['recordCount']
+
+            if 'list' in keys and list:
+                for item in resultJson['list']:
+                    categoryId = item['categoryId']
+                    categoryName = item['categoryName']
+                    cityId = item['cityId']
+                    id = item['id']
+                    name = item['name']
+                    priceText = item['priceText']
+                    regionName = item['regionName']
+                    reviewCount = item['reviewCount']
+                    shopPower = item['shopPower']
+                    shopType = item['shopType']
+                    shopUuid = item['shopUuid']
+                    poiInfo = [name, id, cityId, categoryName, categoryId,
+                                regionName,self.parameters['regionid'], shopType,
+                                shopUuid, reviewCount, shopPower, priceText
+                                ]
+                self.pois.append(list(poiInfo))     #添加信息到 self.pois 列表中
+
+
+
+
+    def main(self):
+        for category in self.categorysTwo:                      # 迭代 分类列表
+            # category['id']
+            for region in self.regionsTwo:                      # 迭代 区域列表
+                # region['id']
+                self.poiCount = self.recordCount
+                self.poisFileName = r'./tab/' + str(self.cityId) + '_' + str(category['id']) + '_' + str(region['id']) + r'.csv'        #保存店铺POI信息的文件路径
+
+                pageNum = 0
+                while self.nextStartIndex!=self.recordCount:        # 迭代 页数
+                    parameters = {  'start' : self.nextStartIndex,
+                                    'categoryid' : str(category['id']),
+                                    'sortid' : '3',
+                                    'cityid' : str(self.cityId),
+                                    'limit' :  '50',
+                                    'regionid' : str(region['id'])
+                                    }
+                    self.changeParameters(parameters)    # 更新 parameters 到 self.parameters
+                    self.getPagePois()
+                    self.currentPoiFileName =  r'./tab/' + str(self.cityId) + '_' + str(category['id']) + '_' + str(region['id']) +  '_' + self.nextStartIndex + '_currentUrl.dat'  # 保存进度的文件路径
+
+                    if pageNum > 20 :
+                        pageNum = pageNum + 1
+                        csvfile = open(self.poisFileName, 'a+', newline='')     # 写入 csv文件
+                        writer = csv.writer(csvfile)
+                        writer.writerows(self.pois)
+
+                        with open(self.currentPoiFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                            f.writelines(str(self.cityId) + '_' + str(category['id']) + '_' + str(region['id']) +  '_' + self.nextStartIndex)
+
+                        csvfile.close()
+                        self.pois = []   # 清空 self.pois
+
+
 
 
 if __name__=='__main__':
-    dianping = getDianpingInfoAPI(17)
-    poiClass = dianping.getCategorys()
-    print(dianping)
+    dianping = getDianpingInfoAPI(17)     # 初始化对象  参数为城市ID
+    poiClass = dianping.getCategorys()      # 获取分类信息
+
+    dianping.main()
+    print(123)
