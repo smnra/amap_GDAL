@@ -80,6 +80,7 @@ class getDianpingInfoAPI():
         self.currentPoiFileName = r'./tab/' + str(self.cityId) + '_currentPoi.dat'  # 保存进度的文件路径
         self.poisFileName = r'./tab/' + str(self.cityId) + r'.csv'  # 保存店铺POI信息的文件路径
 
+        self.translate = GPS()  # 初始化坐标系转化
 
     def changeProxy(self):
         getProxy = self.getproxy()
@@ -167,7 +168,6 @@ class getDianpingInfoAPI():
                         categoryId = item['categoryId']
                         categoryName = item['categoryName']
                         cityId = item['cityId']
-                        id = item['id']
                         name = item['name']
                         priceText = item['priceText']
                         regionName = item['regionName']
@@ -175,10 +175,16 @@ class getDianpingInfoAPI():
                         shopPower = item['shopPower']
                         shopType = item['shopType']
                         shopUuid = item['shopUuid']
+                        id = item['id']
+                        if id :
+                            coordinate = dianping.getPoiCoordinate(id)  # 获取 店铺经纬度
+
                         poiInfo = [name, id, cityId, categoryName, categoryId,
                                     regionName,self.parameters['regionid'], shopType,
-                                    shopUuid, reviewCount, shopPower, priceText
+                                    shopUuid, reviewCount, shopPower, priceText,coordinate
                                     ]
+                        poiInfo = list(["'" + str(item) + "'" for item in poiInfo])    # 增加csv界定符
+
                         self.pois.append(list(poiInfo))     #添加信息到 self.pois 列表中
                     except  Exception as e:
                         print(e)
@@ -196,25 +202,26 @@ class getDianpingInfoAPI():
                 f.writelines(','.join(
                     ["name", "id", "cityId", "categoryName", "categoryId",
                      "regionName", "regionid", "shopType",
-                     "shopUuid", "reviewCount", "shopPower", "priceText"
+                     "shopUuid", "reviewCount", "shopPower", "priceText","coordinate"
                      ]))         # 写入表头
-            self.currentPoi = [str(self.categorysTwo[0]['id']), str(self.regionsTwo[0]['id']), str(self.nextStartIndex)]
-        elif isExistPath(self.currentPoiFileName):  # 如果不存在 currentPoiFileName.dat
+            self.currentPoi = [0,0,0]
+        elif not isExistPath(self.currentPoiFileName):  # 如果不存在 currentPoiFileName.dat
+            self.currentPoi = [0,0,0]
+        elif isExistPath(self.currentPoiFileName):  # 如果存在 currentPoiFileName.dat
             with open(self.currentPoiFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
-                self.currentPoi = f.readline().split(",")  # 从文件 currentPoi.dat 读取采集进度.
+                self.currentPoi = list(f.readline().split(","))  # 从文件 currentPoi.dat 读取采集进度.
 
-        self.currentcategoryIndex = self.categorysTwo.index(self.currentPoi[0])      # 找到categorysTwo　的索引
-        self.currentRegionIndex = self.regionsTwo.index(self.currentPoi[1])     # 找到　regionsTwo　的索引
-        self.nextStartIndex = int(self.currentPoi[2])                           #　设置开始的序号
+        self.currentcategoryIndex = int(self.currentPoi[0])    # 找到categorysTwo　的索引
+        self.currentRegionIndex = int(self.currentPoi[1])     # 找到　regionsTwo　的索引
+        self.nextStartIndex = int(self.currentPoi[2])                          #　设置开始的序号
+
 
     def main(self):
-        for category in self.categorysTwo[self.currentcategoryIndex:]:                      # 迭代 分类列表
+        for c,category in enumerate(self.categorysTwo[self.currentcategoryIndex:]):                      # 迭代 分类列表
             # category['id']
             pageNum = 0
-            self.getCurrentPoi()                                # 载入进度, 写入表头
-            for region in self.regionsTwo[self.currentRegionIndex:]:                      # 迭代 区域列表
+            for r,region in enumerate(self.regionsTwo[self.currentRegionIndex:]):                      # 迭代 区域列表
                 # region['id']
-                self.poiCount = self.recordCount
                 pageNum = pageNum + 1
                 self.nextStartIndex =0
                 self.recordCount = 1
@@ -236,7 +243,7 @@ class getDianpingInfoAPI():
                             csvfile.close()
 
                             with open(self.currentPoiFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
-                                f.writelines(str(category['id'])  +  ',' +  str(region['id']) +  ',' + str(self.nextStartIndex))
+                                f.writelines(str(self.currentcategoryIndex + c)  +  ',' +  str(self.currentRegionIndex + r) +  ',' + str(self.nextStartIndex))
 
                             self.pois = []   # 清空 self.pois
                     else :
@@ -261,7 +268,7 @@ class getDianpingInfoAPI():
         try:
             result = requests.get(url, timeout=10, headers=headers, proxies=self.proxies)
         except  Exception as e:
-            print(e)
+            print(e,"Retry...")
             # self.changeProxy()    # 更换代理
             return self.getPoiCoordinate(id)
 
@@ -269,20 +276,26 @@ class getDianpingInfoAPI():
             soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
             scripts = soup.findAll(name='script')
             if scripts:
-                script = [script.text for script in scripts if "shopLat" in script.text][0]
-                script.replace(r'\n        window.PAGE_INITIAL_STATE = ','').strip(';')
-                scriptJson = result.json()  # 把json 转化为字典
-
-
-                print(script[0])
-
+                script = [script.text for script in scripts if "shopLat" in script.text][0].strip().strip(';')
+                script = script.replace(r'window.PAGE_INITIAL_STATE = ','').strip()
+                script = script.replace('false', 'False').replace('true', 'True')
+                scriptDict = eval(script)
+                shopId = scriptDict['_context']['pageInitData']['shopId']
+                shopLat = scriptDict['_context']['pageInitData']['shopLat']
+                shopLng = scriptDict['_context']['pageInitData']['shopLng']
+            if shopId==id :
+                coordinate = self.translate.gcj_decrypt_exact(shopLat,shopLng)
+                coordinate = str(coordinate["lon"]) + ";" + str(coordinate["lat"])
+                return  coordinate
                 # Out[9]: '\n        window.PAGE_INITIAL_STATE = {"_context":{"header":{"user-agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162","cookie":"; _hc.v=e337b7a8-91d7-140d-3e99-cc64da3abd05.1534085629"},"modules":[{"moduleName":"bottom-app","config":{"support_system":"all","bottomapp_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fevt.dianping.com%2Fsynthesislink%2F10900.html%3FshopId%3D{shopId}&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","bottomapp_utm":"ulink_shopmapbutton","setSyntheticalLink":"https://evt.dianping.com/synthesislink/10900.html","bottomapp_link_android":"https://evt.dianping.com/synthesislink/10900.html?shopId={shopId}","setDownloadLink":"https://m.dianping.com/download/redirect?id=10899","pos":"top"},"isServerRender":false},{"moduleName":"map","config":{"map_link_android":"https://m.dianping.com/shop/{shopId}/map","map_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fm.dianping.com%2Fshop%2F{shopId}%2Fmap&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","map_utm":"ulink_shopmap"},"isServerRender":false},{"moduleName":"autoopenapp","config":{"utm":"","app_utm":"w_mshop_map","app_link_android":"dianping://mapnavigation?shopid={shopId}","app_link_ios":"dianping://mapnavigation?shopid={shopId}"},"isServerRender":false}],"mSource":"default","pageInitData":{"shopId":"550409","shopIdTrue":"550409","shopLat":34.26091955582504,"shopLng":108.9531197944874,"userLat":0,"userLng":0,"shopName":"西安饭庄","address":"东大街298号","overseascity":false,"mapType":"qqmap","googleApiUrl":""},"pageEnName":"map"},"bottom-app":{"_config":{"support_system":"all","bottomapp_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fevt.dianping.com%2Fsynthesislink%2F10900.html%3FshopId%3D{shopId}&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","bottomapp_utm":"ulink_shopmapbutton","setSyntheticalLink":"https://evt.dianping.com/synthesislink/10900.html","bottomapp_link_android":"https://evt.dianping.com/synthesislink/10900.html?shopId={shopId}","setDownloadLink":"https://m.dianping.com/download/redirect?id=10899","pos":"top"},"_isInit":false},"map":{"_config":{"map_link_android":"https://m.dianping.com/shop/{shopId}/map","map_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fm.dianping.com%2Fshop%2F{shopId}%2Fmap&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","map_utm":"ulink_shopmap"},"_isInit":false},"autoopenapp":{"_config":{"utm":"","app_utm":"w_mshop_map","app_link_android":"dianping://mapnavigation?shopid={shopId}","app_link_ios":"dianping://mapnavigation?shopid={shopId}"},"_isInit":false}};\n    '
-
+        else:
+            print("http status_code :", result.status_code,",Retry...")
+            return self.getPoiCoordinate(id)
 
 if __name__=='__main__':
     dianping = getDianpingInfoAPI(17)     # 初始化对象  参数为城市ID
-    print(dianping.getPoiCoordinate('550409'))
-    poiClass = dianping.getCategorys()    # 获取分类信息
+    # print(dianping.getPoiCoordinate('550409'))
+    dianping.getCategorys()    # 获取分类信息
     dianping.getCurrentPoi()              # 读取 采集进度
     dianping.main()
     print(123)
