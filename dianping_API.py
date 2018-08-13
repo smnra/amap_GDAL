@@ -147,6 +147,7 @@ class getDianpingInfoAPI():
         #self.changeParameters(params)       # 设置 get() 方法的 params 附加参数
         poiInfo = []
         try:
+            print(self.parameters)
             result = requests.get(self.poiPageUrl, timeout=10, headers=self.headers, params = self.parameters, proxies=self.proxies)
         except  Exception as e:
             print(e)
@@ -187,8 +188,8 @@ class getDianpingInfoAPI():
 
                         self.pois.append(list(poiInfo))     #添加信息到 self.pois 列表中
                     except  Exception as e:
-                        print(e)
-                print(poiInfo)
+                        print(e,'\n',self.poiPageUrl)
+                # print(poiInfo)
                 return True
         else:
             self.changeProxy()      # 更换代理
