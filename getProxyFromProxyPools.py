@@ -20,7 +20,7 @@ class ChangeProxy():
         print(self.cruuentProxyIP)
 
     def getProxy(self):
-        proxy =  requests.get("http://123.207.35.36:5010/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get
+        proxy =  requests.get("http://123.207.35.36:5010/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get     # 155.94.186.95
         return  proxy
 
     def changeProxyIP(self):

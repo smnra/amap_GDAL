@@ -3,8 +3,8 @@
 
 """ 
 @author:Administrator 
-@file: dianping_API.py 
-@time: 2018/08/{DAY} 
+@file: dianping_API.py
+@time: 2018/08/{DAY}
 描述: 大众点评 API
 返回json格式的结果
 http://mapi.dianping.com/searchshop.json?start=0&categoryid=55&sortid=3&cityid=17&regionid=1754
@@ -124,6 +124,7 @@ class getDianpingInfoAPI():
                 self.regionsOne = [regionNav for regionNav in self.regionNavs if regionNav['parentId']==0] # 一级区域
                 self.regionsOneSelf = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] == regionNav['id']]  # 一级区域底下包含全部子poi的子区域
                 self.regionsTwo = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] not in [0,-10000,regionNav['id']]]  # 一级区域底下包含全部子poi的子区域
+                self.regions = sorted(list(set([region['id'] for region in self.regionsTwo])))
 
             if 'categoryNavs' in keys:
                 self.categoryNavs = resultJson['categoryNavs']    # POI类型分类
@@ -131,6 +132,7 @@ class getDianpingInfoAPI():
                 self.categorysOne =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']==0 and categoryNav['id']!=0] # 一级区域
                 self.categorysOneSelf =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']== categoryNav['id']]  # 一级区域底下包含全部子poi的子区域
                 self.categorysTwo = [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']!= categoryNav['id'] and categoryNav['parentId']!=0]  # 一级区域底下包含全部子poi的子区域
+                self.categorys = sorted(list(set([category['id'] for category in self.categorysTwo])))
 
             self.currentPoi = []
             return
@@ -159,8 +161,10 @@ class getDianpingInfoAPI():
             resultJson = result.json()          # 把json 转化为字典
             keys = list(resultJson.keys())       # 字典的key的 列表
 
+            if 'isEnd' in keys:
+                self.isEnd = resultJson['isEnd']                            # 本次的 分类和 地区下的店铺是否是最后一页
             if 'nextStartIndex' in keys:
-                self.nextStartIndex = resultJson['nextStartIndex']      # 更新下一次开始的start参数
+                self.currentStartIndex = resultJson['nextStartIndex']      # 更新下一次开始的start参数
             if 'recordCount' in keys:
                 self.recordCount = resultJson['recordCount']
 
@@ -171,21 +175,29 @@ class getDianpingInfoAPI():
                             categoryId = item['categoryId']
                             categoryName = item['categoryName']
                             cityId = item['cityId']
+                            dishtags = item['dishtags']
+                            id = item['id']
+                            matchText= item['matchText']
                             name = item['name']
+                            poiType = item['poiType']
                             priceText = item['priceText']
+                            recommendReasonData = item['recommendReasonData']['recommendReason']
                             regionName = item['regionName']
                             reviewCount = item['reviewCount']
                             shopPower = item['shopPower']
                             shopType = item['shopType']
-                            shopUuid = item['shopUuid']
-                            id = item['id']
-                            if id :
-                                coordinate = dianping.getPoiCoordinate(id)  # 获取 店铺经纬度
+                            tagList = ";".join([tag['text']  for tag in item['tagList']])    # tagList   列表转 字符串
 
-                            poiInfo = [name, id, cityId, categoryName, categoryId,
-                                        regionName,self.parameters['regionid'], shopType,
-                                        shopUuid, reviewCount, shopPower, priceText,coordinate
-                                        ]
+                            if id :
+                                coordinate = self.getPoiCoordinate(id)  # 获取 店铺经纬度
+                                poiDatil = self.getPoiDatil(id)         # 获取点评详细信息
+
+
+                            poiInfo = [name,categoryId,categoryName,cityId,
+                                       dishtags,id,matchText,poiType,priceText,
+                                       recommendReasonData,regionName,reviewCount,
+                                       shopPower,shopType,tagList ,coordinate
+                                        ] + poiDatil
                             poiInfo = list(["'" + str(item) + "'" for item in poiInfo])    # 增加csv界定符
                             self.pois.append(list(poiInfo))     #添加信息到 self.pois 列表中
                             poiCount = poiCount + 1
@@ -207,10 +219,13 @@ class getDianpingInfoAPI():
         if not isExistPath(self.poisFileName):  # 如果不存在 currentPoi.dat
             with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
                 f.writelines(','.join(
-                    ["name", "id", "cityId", "categoryName", "categoryId",
-                     "regionName", "regionid", "shopType",
-                     "shopUuid", "reviewCount", "shopPower", "priceText","coordinate"
-                     ]))         # 写入表头
+                    ["'name'",  "'categoryId'",  "'categoryName'",  "'cityId'",
+                     "'dishtags'",  "'id'",  "'matchText'",  "'poiType'",
+                     "'priceText'",  "'recommendReasonData'",  "'regionName'",
+                     "'reviewCount'",  "'shopPower'",  "'shopType'",  "'tagList'",
+                     "'coordinate'",  "'kouwei'",  "'huanjing'",  "'fuwu'",
+                     "'addresses'",  "' phones'",  "' otherInfoes'"
+                     , "\n"]))         # 写入表头
             self.currentPoi = [0,0,0]
         elif not isExistPath(self.currentPoiFileName):  # 如果不存在 currentPoiFileName.dat
             self.currentPoi = [0,0,0]
@@ -218,27 +233,32 @@ class getDianpingInfoAPI():
             with open(self.currentPoiFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
                 self.currentPoi = list(f.readline().split(","))  # 从文件 currentPoi.dat 读取采集进度.
 
-        self.currentcategoryIndex = int(self.currentPoi[0])    # 找到categorysTwo　的索引
-        self.currentRegionIndex = int(self.currentPoi[1])     # 找到　regionsTwo　的索引
-        self.nextStartIndex = int(self.currentPoi[2])          #　设置开始的序号
+        if int(self.currentPoi[0]) in self.categorys:
+            self.currentcategoryIndex = self.categorys.index(int(self.currentPoi[0]))   # 找到 self.categorys　的索引
+        else: self.currentcategoryIndex = 0
+
+        if int(self.currentPoi[1]) in self.regions:
+            self.currentRegionIndex = self.regions.index(int(self.currentPoi[1]))     # 找到　self.regions　的索引
+        else: self.currentRegionIndex = 0
+
+        self.currentStartIndex = int(self.currentPoi[2])          #　设置开始的序号
 
 
     def main(self):
-        for c,category in enumerate(self.categorysTwo[self.currentcategoryIndex:]):                      # 迭代 分类列表
-            self.nextCategory = c
+        for c,category in enumerate(self.categorys[self.currentcategoryIndex:]):                      # 迭代 分类列表
+            self.nextCategory = category
             pageNum = 0
-            for r,region in enumerate(self.regionsTwo[self.currentRegionIndex:]):                      # 迭代 区域列表
-                self.nextRegion = r
+            for r,region in enumerate(self.regions[self.currentRegionIndex:]):                      # 迭代 区域列表
+                self.nextRegion = region
                 pageNum = pageNum + 1
-                self.nextStartIndex =0
                 self.recordCount = 1
-                while self.nextStartIndex!=self.recordCount:        # 迭代 页数
-                    parameters = {  'start' : self.nextStartIndex,
-                                    'categoryid' : str(category['id']),
+                while self.currentStartIndex!=self.recordCount:        # 迭代 页数
+                    parameters = {  'start' : self.currentStartIndex,
+                                    'categoryid' : str(category),
                                     # 'sortid' : '3',
                                     'cityid' : str(self.cityId),
                                     # 'limit' :  '50',
-                                    'regionid' : str(region['id'])
+                                    'regionid' : str(region)
                                     }
                     self.changeParameters(parameters)    # 更新 parameters 到 self.parameters
                     result = self.getPagePois()
@@ -255,12 +275,12 @@ class getDianpingInfoAPI():
         writer = csv.writer(csvfile)
         writer.writerows(self.pois)
         csvfile.close()
-
         with open(self.currentPoiFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
             f.writelines(
-                str(self.currentcategoryIndex + self.nextCategory) + ',' + str(self.currentRegionIndex + self.nextRegion) + ',' + str(self.nextStartIndex))
+                str(self.nextCategory) + ',' + str(self.nextRegion) + ',' + str(self.nextStartIndex))
         self.pois = []   # 清空 self.pois
         print("保存文件完成!")
+
     def getPoiCoordinate(self,id):
         url = 'http://m.dianping.com/shop/' + str(id) + r'/map'
         headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -303,11 +323,67 @@ class getDianpingInfoAPI():
             print("http status_code :", result.status_code,",Retry...")
             return self.getPoiCoordinate(id)
 
+
+    def getPoiDatil(self,id):
+        url = 'http://m.dianping.com/shop/' + str(id)
+        headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Accept-Language': 'zh-CN,zh;q=0.9',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Cookie': '',
+                    'DNT': '1',
+                    'Host': 'm.dianping.com',
+                    'Pragma': 'no-cache',
+                    'Upgrade-Insecure-Requests': '1',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
+                   }
+
+        try:
+            result = requests.get(url, timeout=10, headers=headers, proxies=self.proxies)
+        except  Exception as e:
+            print(e,"Retry...")
+            # self.changeProxy()    # 更换代理
+            return self.getPoiDatil(id)
+
+        if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
+            soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
+            # div = soup.find_all("div", class_="desc", attrs={'id': False})
+            servicesDiv = soup.find_all("div", class_="desc")
+            if servicesDiv :
+                services = servicesDiv.find_all("span")
+                services = [service.text for service in services ]
+
+            addressDiv = soup.find_all("a", class_="item")[0]
+            if addressDiv:
+                addresses = addressDiv.text
+
+            phoneDiv = soup.find_all("div", class_="aboutPhoneNum")
+            if phoneDiv:
+                phones = phoneDiv.find_all("a")
+                phones = ";".join([phone.text for phone in phones])
+
+            otherInfoDiv = soup.find_all("div", class_="businessTime")
+            if otherInfoDiv:
+                otherInfoes = otherInfoDiv.text
+
+            return services + [addresses, phones, otherInfoes]
+
+        else:
+            print("http status_code :", result.status_code,",Retry...")
+            return self.getPoiDatil(id)
+
+
+
+
+
 if __name__=='__main__':
-    print(111)
     dianping = getDianpingInfoAPI(17)     # 初始化对象  参数为城市ID
     # print(dianping.getPoiCoordinate('550409'))
     dianping.getCategorys()    # 获取分类信息
+    dianping.regions = [1754]
+    dianping.categorys = [110]
     dianping.getCurrentPoi()              # 读取 采集进度
+
     dianping.main()
     print(123)
