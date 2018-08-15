@@ -21,9 +21,8 @@ from fake_useragent import UserAgent
 from decodeDzdpPoi import *
 from createNewDir import *
 from coordinateTranslate import *
-from random import randint
 from time import sleep
-import sys, os, csv, re
+import sys, os, csv, re,random
 import getProxyFromProxyPools as proxy
 
 sys.setrecursionlimit(1500)  # set the maximum depth as 1500
@@ -113,21 +112,21 @@ class getDianpingInfoAPI():
             keys = list(resultJson.keys())
 
             if 'metroNavs' in keys:
-                self.metroNavs = resultJson['metroNavs']    # 地铁站分类
+                self.metroNavs = resultJson.get('metroNavs',[])    # 地铁站分类
 
             if 'recordCount' in keys:
-                self.recordCount = resultJson['recordCount']    # POI 个数
+                self.recordCount = resultJson.get('recordCount',[])   # POI 个数
 
             if 'regionNavs' in keys:
-                self.regionNavs = resultJson['regionNavs']    # 区域分类
-                self.regionsHot = [regionNav for regionNav in self.regionNavs if regionNav['parentId']==-10000] # 热门区域
-                self.regionsOne = [regionNav for regionNav in self.regionNavs if regionNav['parentId']==0] # 一级区域
-                self.regionsOneSelf = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] == regionNav['id']]  # 一级区域底下包含全部子poi的子区域
-                self.regionsTwo = [regionNav for regionNav in self.regionNavs if regionNav['parentId'] not in [0,-10000,regionNav['id']]]  # 一级区域底下包含全部子poi的子区域
-                self.regions = sorted(list(set([region['id'] for region in self.regionsTwo])))
+                self.regionNavs = resultJson.get('regionNavs',[])    # 区域分类
+                self.regionsHot = [regionNav for regionNav in self.regionNavs if regionNav.get('parentId',[])==-10000] # 热门区域
+                self.regionsOne = [regionNav for regionNav in self.regionNavs if regionNav.get('parentId',[])==0] # 一级区域
+                self.regionsOneSelf = [regionNav for regionNav in self.regionNavs if regionNav.get('parentId',[]) == regionNav['id']]  # 一级区域底下包含全部子poi的子区域
+                self.regionsTwo = [regionNav for regionNav in self.regionNavs if regionNav.get('parentId',[]) not in [0,-10000,regionNav['id']]]  # 一级区域底下包含全部子poi的子区域
+                self.regions = sorted(list(set([region.get('id',[]) for region in self.regionsTwo])))
 
             if 'categoryNavs' in keys:
-                self.categoryNavs = resultJson['categoryNavs']    # POI类型分类
+                self.categoryNavs = resultJson.get('categoryNavs',[])    # POI类型分类
                 # self.categorysHot = [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']==0 and categoryNav['id']!=0] # 热门区域
                 self.categorysOne =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']==0 and categoryNav['id']!=0] # 一级区域
                 self.categorysOneSelf =  [categoryNav for categoryNav in self.categoryNavs if categoryNav['parentId']== categoryNav['id']]  # 一级区域底下包含全部子poi的子区域
@@ -138,7 +137,7 @@ class getDianpingInfoAPI():
             return
         else:
             print("getCategorys Error! 请检查验证码!")
-            self.changeProxy()    # 更改代理
+            # self.changeProxy()    # 更改代理
             return self.getCategorys()     #迭代本方法
 
 
@@ -149,6 +148,9 @@ class getDianpingInfoAPI():
         poiCount = 0
         #self.changeParameters(params)       # 设置 get() 方法的 params 附加参数
         poiInfo = []
+        coordinate = ""
+        poiDatil = []
+        tagList = ""
         try:
             # print(self.parameters)
             result = requests.get(self.poiPageUrl, timeout=10, headers=self.headers, params = self.parameters, proxies=self.proxies)
@@ -160,49 +162,49 @@ class getDianpingInfoAPI():
         if result.status_code==200:              # 如果返回的状态码为200 则正常,否则异常
             resultJson = result.json()          # 把json 转化为字典
             keys = list(resultJson.keys())       # 字典的key的 列表
-
+            coordinate = ""  # 获取 店铺经纬度
             if 'isEnd' in keys:
-                self.isEnd = resultJson['isEnd']                            # 本次的 分类和 地区下的店铺是否是最后一页
+                self.isEnd = resultJson.get('isEnd')                       # 本次的 分类和 地区下的店铺是否是最后一页
             if 'nextStartIndex' in keys:
-                self.currentStartIndex = resultJson['nextStartIndex']      # 更新下一次开始的start参数
+                self.currentStartIndex = resultJson.get('nextStartIndex',0)     # 更新下一次开始的start参数
             if 'recordCount' in keys:
-                self.recordCount = resultJson['recordCount']
+                self.recordCount = resultJson.get('recordCount',1)
 
             if 'list' in keys and list:
                 if "没有找到合适的商户" not in result.text:
-                    for item in resultJson['list']:
+                    for item in resultJson.get('list',[]):
                         try:
-                            categoryId = item['categoryId']
-                            categoryName = item['categoryName']
-                            cityId = item['cityId']
-                            dishtags = item['dishtags']
-                            id = item['id']
-                            matchText= item['matchText']
-                            name = item['name']
-                            poiType = item['poiType']
-                            priceText = item['priceText']
-                            recommendReasonData = item['recommendReasonData']['recommendReason']
-                            regionName = item['regionName']
-                            reviewCount = item['reviewCount']
-                            shopPower = item['shopPower']
-                            shopType = item['shopType']
-                            tagList = ";".join([tag['text']  for tag in item['tagList']])    # tagList   列表转 字符串
+                            categoryId = item.get('categoryId','')
+                            categoryName = item.get('categoryName','')
+                            cityId = item.get('cityId','')
+                            dishtags = item.get('dishtags','')
+                            id = item.get('id','')
+                            matchText= item.get('matchText','')
+                            name = item.get('name','')
+                            poiType = item.get('poiType','')
+                            priceText = item.get('priceText','')
+                            regionName = item.get('regionName','')
+                            reviewCount = item.get('reviewCount','')
+                            shopPower = item.get('shopPower','')
+                            shopType = item.get('shopType','')
+                            tagList = ";".join([tag.get('text',[])  for tag in item.get('tagList',[])])    # tagList   列表转 字符串
 
                             if id :
                                 coordinate = self.getPoiCoordinate(id)  # 获取 店铺经纬度
-                                poiDatil = self.getPoiDatil(id)         # 获取点评详细信息
-
-
-                            poiInfo = [name,categoryId,categoryName,cityId,
-                                       dishtags,id,matchText,poiType,priceText,
-                                       recommendReasonData,regionName,reviewCount,
-                                       shopPower,shopType,tagList ,coordinate
-                                        ] + poiDatil
-                            poiInfo = list(["'" + str(item) + "'" for item in poiInfo])    # 增加csv界定符
-                            self.pois.append(list(poiInfo))     #添加信息到 self.pois 列表中
-                            poiCount = poiCount + 1
+                                # time.sleep(random.uniform(1,4))
+                                # poiDatil = self.getPoiDatil(id)         # 获取点评详细信息
                         except  Exception as e:
                             print(e, '\n', self.parameters)
+
+                        poiInfo = [name, categoryId, categoryName, cityId,
+                                   dishtags, id, matchText, poiType, priceText,
+                                   regionName, reviewCount,
+                                   shopPower, shopType, tagList, coordinate
+                                   ] + poiDatil
+                        poiInfo = list(["'" + str(item) + "'" for item in poiInfo])  # 增加csv界定符
+                        self.pois.append(list(poiInfo))  # 添加信息到 self.pois 列表中
+                        poiCount = poiCount + 1
+                    print(self.currentStartIndex)
 
                 else:
                     print("没有找到合适的商户:", result.url)
@@ -210,7 +212,7 @@ class getDianpingInfoAPI():
             print(poiInfo)
             return poiCount
         else:
-            self.changeProxy()      # 更换代理
+            print("http返回状态码异常:",result.status_code, self.poiPageUrl)     # 更换代理
             return self.getPagePois()
 
 
@@ -221,7 +223,7 @@ class getDianpingInfoAPI():
                 f.writelines(','.join(
                     ["'name'",  "'categoryId'",  "'categoryName'",  "'cityId'",
                      "'dishtags'",  "'id'",  "'matchText'",  "'poiType'",
-                     "'priceText'",  "'recommendReasonData'",  "'regionName'",
+                     "'priceText'",  "'regionName'",
                      "'reviewCount'",  "'shopPower'",  "'shopType'",  "'tagList'",
                      "'coordinate'",  "'kouwei'",  "'huanjing'",  "'fuwu'",
                      "'addresses'",  "' phones'",  "' otherInfoes'"
@@ -263,11 +265,11 @@ class getDianpingInfoAPI():
                     self.changeParameters(parameters)    # 更新 parameters 到 self.parameters
                     result = self.getPagePois()
                     if result:
-                        if (pageNum % 20)==0:
+                        if (pageNum % 5)==0:
                             self.saveFile()     # 写入文件
                     else :
                         print("getPagePois 失败!")
-
+                self.currentStartIndex = 0
                 self.saveFile()  # 写入文件
 
     def saveFile(self):
@@ -311,12 +313,12 @@ class getDianpingInfoAPI():
                 script = script.replace(r'window.PAGE_INITIAL_STATE = ','').strip()
                 script = script.replace('false', 'False').replace('true', 'True')
                 scriptDict = eval(script)
-                shopId = scriptDict['_context']['pageInitData']['shopId']
-                shopLat = scriptDict['_context']['pageInitData']['shopLat']
-                shopLng = scriptDict['_context']['pageInitData']['shopLng']
+                shopId = scriptDict.get('_context').get('pageInitData').get('shopId')
+                shopLat = scriptDict.get('_context').get('pageInitData').get('shopLat')
+                shopLng = scriptDict.get('_context').get('pageInitData').get('shopLng')
             if shopId==id :
                 coordinate = self.translate.gcj_decrypt_exact(shopLat,shopLng)
-                coordinate = str(coordinate["lon"]) + ";" + str(coordinate["lat"])
+                coordinate = str(coordinate.get("lon")) + ";" + str(coordinate.get("lat"))
                 return  coordinate
                 # Out[9]: '\n        window.PAGE_INITIAL_STATE = {"_context":{"header":{"user-agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162","cookie":"; _hc.v=e337b7a8-91d7-140d-3e99-cc64da3abd05.1534085629"},"modules":[{"moduleName":"bottom-app","config":{"support_system":"all","bottomapp_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fevt.dianping.com%2Fsynthesislink%2F10900.html%3FshopId%3D{shopId}&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","bottomapp_utm":"ulink_shopmapbutton","setSyntheticalLink":"https://evt.dianping.com/synthesislink/10900.html","bottomapp_link_android":"https://evt.dianping.com/synthesislink/10900.html?shopId={shopId}","setDownloadLink":"https://m.dianping.com/download/redirect?id=10899","pos":"top"},"isServerRender":false},{"moduleName":"map","config":{"map_link_android":"https://m.dianping.com/shop/{shopId}/map","map_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fm.dianping.com%2Fshop%2F{shopId}%2Fmap&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","map_utm":"ulink_shopmap"},"isServerRender":false},{"moduleName":"autoopenapp","config":{"utm":"","app_utm":"w_mshop_map","app_link_android":"dianping://mapnavigation?shopid={shopId}","app_link_ios":"dianping://mapnavigation?shopid={shopId}"},"isServerRender":false}],"mSource":"default","pageInitData":{"shopId":"550409","shopIdTrue":"550409","shopLat":34.26091955582504,"shopLng":108.9531197944874,"userLat":0,"userLng":0,"shopName":"西安饭庄","address":"东大街298号","overseascity":false,"mapType":"qqmap","googleApiUrl":""},"pageEnName":"map"},"bottom-app":{"_config":{"support_system":"all","bottomapp_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fevt.dianping.com%2Fsynthesislink%2F10900.html%3FshopId%3D{shopId}&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","bottomapp_utm":"ulink_shopmapbutton","setSyntheticalLink":"https://evt.dianping.com/synthesislink/10900.html","bottomapp_link_android":"https://evt.dianping.com/synthesislink/10900.html?shopId={shopId}","setDownloadLink":"https://m.dianping.com/download/redirect?id=10899","pos":"top"},"_isInit":false},"map":{"_config":{"map_link_android":"https://m.dianping.com/shop/{shopId}/map","map_link_ios":"https://link.dianping.com/universal-link?originalUrl=https%3A%2F%2Fm.dianping.com%2Fshop%2F{shopId}%2Fmap&schema=dianping%3A%2F%2Fshopinfo%3Fid%3D{shopId}%26utm%3D@utm@","map_utm":"ulink_shopmap"},"_isInit":false},"autoopenapp":{"_config":{"utm":"","app_utm":"w_mshop_map","app_link_android":"dianping://mapnavigation?shopid={shopId}","app_link_ios":"dianping://mapnavigation?shopid={shopId}"},"_isInit":false}};\n    '
         else:
@@ -325,20 +327,26 @@ class getDianpingInfoAPI():
 
 
     def getPoiDatil(self,id):
-        url = 'http://m.dianping.com/shop/' + str(id)
-        headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Accept-Language': 'zh-CN,zh;q=0.9',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Cookie': '',
-                    'DNT': '1',
-                    'Host': 'm.dianping.com',
-                    'Pragma': 'no-cache',
-                    'Upgrade-Insecure-Requests': '1',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
-                   }
+        self.changeUserAgnet()              # 随机更换 UserAgnet
+        #self.clearCookie()                  # 清除 Cookies
 
+        url = 'http://m.dianping.com/shop/' + str(id)
+        services = []
+        addresses = ""
+        phones  = ""
+        otherInfoes = ""
+
+        headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Accept-Language': 'zh-CN,zh;q=0.9',
+                        'Cache-Control': 'max-age=0',
+                        'Connection': 'keep-alive',
+                        'Cookie': 'navCtgScroll=0; showNav=#nav-tab|0|0; _lx_utm=utm_source%3DBaidu%26utm_medium%3Dorganic; _lxsdk_cuid=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _lxsdk=164ecc140a2c8-0983a9007c6945-252b1971-100200-164ecc140a2c8; _hc.v=2195dd5e-1af7-1442-0872-b25748f68cf1.1532980446; s_ViewType=10; _dp.ac.v=0e97f4cb-0a00-4b68-a3af-42cbd882e87d; ua=13201465365; ctu=f5d5b94828db29ae10e4468d68c4987437689a310853888c076fc6a448bcd3e2; aburl=1; cy=17; cye=xian',
+                        'DNT': '1',
+                        'Host': 'www.dianping.com',
+                        'Upgrade-Insecure-Requests': '1',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162'
+                        }
         try:
             result = requests.get(url, timeout=10, headers=headers, proxies=self.proxies)
         except  Exception as e:
@@ -349,27 +357,26 @@ class getDianpingInfoAPI():
         if result.status_code == 200:  # 如果返回的状态码为200 则正常,否则异常
             soup = BeautifulSoup(result.text, 'html.parser')  # 将返回的网页转化为bs4 对象
             # div = soup.find_all("div", class_="desc", attrs={'id': False})
-            servicesDiv = soup.find_all("div", class_="desc")
+            servicesDiv = soup.find_all("div", class_="desc")[0]
             if servicesDiv :
                 services = servicesDiv.find_all("span")
                 services = [service.text for service in services ]
 
-            addressDiv = soup.find_all("a", class_="item")[0]
-            if addressDiv:
-                addresses = addressDiv.text
+            phoneAddressDiv = soup.find_all("div", class_="info-list link-list")
+            if phoneAddressDiv[0]:
+                addresses = phoneAddressDiv[0].text.strip()
+            if phoneAddressDiv[1]:
+                phoneses = phoneAddressDiv[1].find_all("a")
+                phoneses = ";".join([phones.text.strip() for phones in phoneses])
 
-            phoneDiv = soup.find_all("div", class_="aboutPhoneNum")
-            if phoneDiv:
-                phones = phoneDiv.find_all("a")
-                phones = ";".join([phone.text for phone in phones])
-
-            otherInfoDiv = soup.find_all("div", class_="businessTime")
+            otherInfoDiv = soup.find_all("div", class_="businessTime")[0]
             if otherInfoDiv:
-                otherInfoes = otherInfoDiv.text
+                otherInfoes = otherInfoDiv.text.strip().replace("\n"," ")
 
-            return services + [addresses, phones, otherInfoes]
+            return services + [addresses, phoneses, otherInfoes]
 
         else:
+            # self.changeProxy()  # 更改代理
             print("http status_code :", result.status_code,",Retry...")
             return self.getPoiDatil(id)
 
@@ -381,8 +388,8 @@ if __name__=='__main__':
     dianping = getDianpingInfoAPI(17)     # 初始化对象  参数为城市ID
     # print(dianping.getPoiCoordinate('550409'))
     dianping.getCategorys()    # 获取分类信息
-    dianping.regions = [1754]
-    dianping.categorys = [110]
+    # dianping.regions = [1754]
+    # dianping.categorys = [110]
     dianping.getCurrentPoi()              # 读取 采集进度
 
     dianping.main()
