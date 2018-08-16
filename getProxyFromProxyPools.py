@@ -20,7 +20,7 @@ class ChangeProxy():
         print(self.cruuentProxyIP)
 
     def getProxy(self):
-        proxy =  requests.get("http://123.207.35.36:5010/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get     # 155.94.186.95
+        proxy =  requests.get("http://155.94.186.95:80/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get     # 155.94.186.95:80
         return  proxy
 
     def changeProxyIP(self):
@@ -49,9 +49,7 @@ if __name__ == '__main__' :
 
     proxyRequest = ChangeProxy()                #初始化ChangeProxy 类对象
     s = proxyRequest.changeProxyIP()               #返回一个设置代理的 requests 实例对象对象
-
     html = s.get('http://ip.chinaz.com/getip.aspx', timeout=10)
-
     print(html.text)
 
 
