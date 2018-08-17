@@ -2,12 +2,12 @@
 
 import requests
 from changeKey import Keys              #导入更换Key 的模块
-import time
+from fake_useragent import UserAgent
+from time import sleep
 from cutRect import cutRect, rectToPoint
 import createShapeFile
-import arrow, os
-import WriteToExcel
-import changeProxy
+import arrow, os, json
+from random import triangular,randint
 import geoOperation
 from getProxyFromProxyPools import ChangeProxy
 
@@ -47,19 +47,20 @@ class GetRectPoi():
                                   'page': '1' }        # 初始 searchUrl 的 附带参数
         self.polygonUrlParams = {'id' : ''}         # 初始 boundUrl 的 附带参数
 
-        self.searchUrlheaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        self.searchUrlHeaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
                         "Accept-Encoding": "gzip, deflate",
                         "Accept-Language": "zh-CN,zh;q=0.9",
-                        "Cache-Control": "max-age=0",
                         "Connection": "keep-alive",
                         "Cookie": "key=bfe31f4e0fb231d29e1d3ce951e2c780; guid=b62c-103a-88ca-1534; isg=BGhox-wZp35qUIv697t9Zvi6OVa6Ocz1wvvAUyKd9ePMfQHnyqFwKo_8cdUo1oRz",
                         "DNT": "1",
                         "Host": "restapi.amap.com",
+                        "Pragma": "no-cache",
+                         "Cache-Control": "no-cache",
                         "Upgrade-Insecure-Requests": "1",
                         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"
                         }        # 初始 searchUrl 的 headers 字典
 
-        self.polygonUrlheaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        self.polygonUrlHeaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
                                 "Accept-Encoding": "gzip, deflate, br",
                                 "Accept-Language": "zh-CN,zh;q=0.9",
                                 "Connection": "keep-alive",
@@ -67,42 +68,68 @@ class GetRectPoi():
                                 "DNT": "1",
                                 "Host": "www.amap.com",
                                 "If-None-Match": 'W/"dc5-u8GPvtk0uXscPOCrJfDSBe3nBt8"',
+                                "Pragma": "no-cache",
+                                "Cache-Control": "no-cache",
                                 "Upgrade-Insecure-Requests": "1",
                                 "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"
                                 }       # 初始 boundUrl 的 headers 字典
 
         self.proxyPools = ChangeProxy()                        #实例化代理池类
         self.changeProxy = self.proxyPools.changeProxyIP()     # 调用更换代理方法
-        self.noProxy = self.proxyPools.noProxyIP()             # 调用 无代理的方法
-
+        self.noProxy = requests.session                     # 无代理的requests.session 对象
+        self.ua = UserAgent()  # 初始化 随机'User-Agent' 方法
         self.amapKey = Keys()                                  # 实例化 Keys 类对象
-        def changeKey(self):
-            self.key = self.amapKey.getKey()                   # 调用更换Key 的方法
-        self.changeKey()
-
-        def changeUserAgnet(self,option):
-            ''' 随机更换请求头的 用户代理 User-Agent '''
-            ''' 根据option参数选择设置 哪个 requestheader 的 User-Agent '''
-            if option=='search':
-                self.searchUrlheaders['User-Agent'] = self.ua.random
-            elif option=='polygon':
-                self.boundUrlheaders['User-Agent'] = self.ua.random
-
-        def changeCookie(self,option,cookie=""):
-            ''' 设置 http 的 cookie '''
-            ''' 根据option参数选择设置 哪个 requestheader 的 Cookie '''
-            if option=='search':
-                self.searchUrlheaders['Cookie'] = cookie
-            elif option=='polygon':
-                self.boundUrlheaders['User-Agent'] = cookie
-
+        self.retryCount = 0                                    # 重试次数
         self.sourceRect = ''
         ''' 定义源矩形的对象坐标 '''
-        self.subRectPosCount = []       #分割rect后的列表  信息
+        self.subRects = []       #分割rect后的列表  信息
 
         self.createTime = arrow.now().format('YYYYMMDDHHmmss')
         self.filePath = os.getcwd()  +  '\\tab\\' + self.createTime + '\\'        #拼接文件夹以当天日期命名
         self.pois = []                  #用来保存poi数据的 列表
+
+    def changeKey(self):
+        self.key = self.amapKey.getKey()  # 调用更换Key 的方法
+
+    def changeUserAgnet(self, option):
+        ''' 随机更换请求头的 用户代理 User-Agent '''
+        ''' 根据option参数选择设置 哪个 requestheader 的 User-Agent '''
+        if option == 'search':
+            self.searchUrlHeaders['User-Agent'] = self.ua.random
+        elif option == 'polygon':
+            self.polygonUrlHeaders['User-Agent'] = self.ua.random
+
+    def changeCookie(self, option, cookie=""):
+        ''' 设置 http 的 cookie '''
+        ''' 根据option参数选择设置 哪个 requestheader 的 Cookie '''
+        if option == 'search':
+            self.searchUrlHeaders['Cookie'] = cookie
+        elif option == 'polygon':
+            self.polygonUrlHeaders['User-Agent'] = cookie
+
+
+    def setParams(self,option,keyDict):
+        #设置requests.get() 方法 url附带的的 参数
+        ''' 根据option参数选择设置 哪个 requestheader 参数 '''
+        if option == 'search':
+            urlParams = self.searchUrlParams
+        elif option == 'polygon':
+            urlParams = self.polygonUrlParams
+        for key,value in keyDict.items() :      #遍历 keyDict
+            if key in urlParams :               #如果 keyDict 中的key 在 self.urlParams中存在,
+                urlParams[key] = value          #把 keyDict 中的value 更新到 self.urlParams 中
+
+    def setHeader(self,keyDict,option):
+        #设置requests.get() 方法 headers 的各个参数
+        ''' 根据option参数选择设置 哪个 requestheader 参数 '''
+        if option == 'search':
+            headers = self.searchUrlHeaders
+        elif option == 'polygon':
+            headers = self.polygonUrlHeaders
+        for key,value in keyDict.items() :              #遍历 keyDict
+            if key in headers :   #如果 keyDict 中的key 在 self.urlParams中存在,
+                headers[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
+
 
     def add_parameters(self,params, **kwargs):
         #将字典中 key  转化为 'key'　
@@ -118,112 +145,133 @@ class GetRectPoi():
         # 转化为'108.889573,34.269261;108.924163,34.250959'
         return  polygon
 
-    def setParams(self,keyDict):
-        #设置requests.get() 方法 url附带的的 参数
-        for key,value in keyDict.items() :      #遍历 keyDict
-            if key in self.urlParams :          #如果 keyDict 中的key 在 self.urlParams中存在,
-                self.urlParams[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
-
-    def setHeader(self,keyDict):
-        #设置requests.get() 方法 headers 的各个参数
-        for key,value in keyDict.items() :              #遍历 keyDict
-            if key in self.headers :   #如果 keyDict 中的key 在 self.urlParams中存在,
-                self.headers[key] = value      #把 keyDict 中的value 更新到 self.urlParams 中
-
-
-    def getRectPoiCount(self,rect):
-        #接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
-        #通过解析返回POI数量的json 此方法的返回值为 键值对 {'rect' : rect, 'count' : 742}
-        rectParam = {'polygon': self.rectToPolygonStr(rect)}
-        self.setParams(rectParam)                               #使用 self.setParams() 方法 更新 'polygon' 字段的值
+    def isJsonStr(self,jsonStr):
         try:
-            result = requests.get(self.url, params = self.urlParams, timeout = 10, headers = GetRectPoi.headers)
-            if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()                    #得到json格式的数据
-                #poiCount = int(resultJson['count'])          #从 'count' 字段 得到 poi的 个数
-                rectPoiCount = {'rect' : rect, 'count': int(resultJson['count'])}         # 把 键值对 {'rect' : rect} 更新到 resultJson
-                return rectPoiCount
-            elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('too fast, 120s retry!')
-                time.sleep(120)                                #暂停120秒后 迭代 本函数
-                return self.getRectPoiCount(rect)             #暂停120秒后 迭代 本函数
-            elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')             #暂停3秒
-                time.sleep(3)
-                self.setParams({'key': self.amapKey.getKey()})      #更换key
-                return self.getRectPoiCount(rect)             # 迭代 本函数
-            else :
-                return 0
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
-            return -3
+            json.loads(jsonStr)
+        except ValueError:
+            return False
+        return True
 
 
-    def getPoi(self,rect,proxy):
+
+
+    def getPoiPage(self,rect, proxy=requests.session):
         '''
-        返回 rect 范围内 poi 的信息
-        :param rect: 为 要获取的矩形范围
-        :param proxy:  为代理
-        :return: 返回 poi 的列表
+        此方法通过高德地图搜索api url:
+        'http://restapi.amap.com/v3/place/polygon?page=1&extensions=all&offset=10&polygon=108.924463%2C34.269687%3B108.946908%2C34.259437&key=dc44a8ec8db3f9ac82344f9aa536e678'
+        来搜索矩形范围内的 POI 的详细信息 并返回当前页的 json 的字典详细数据
+        :param rect: # 接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
+        :param proxy: # 一个使用代理的 requests.session 对象
+        :return: #返回当前页的 json 的字典详细数据       {"status":"1","count":"894","info":"OK","infocode":"10000","suggestion":{"keywords":[],"cities":[]},"pois":......}
         '''
-
+        self.changeKey()                            # 更换 get() 方法的附带参数 key 的值
+        self.changeUserAgnet('search')              # 更换 http header 的 浏览器用户代理
+        self.changeCookie('search', cookie="")      # 更换 http header 的  cookie
         rectParam = {'polygon': self.rectToPolygonStr(rect)}
-        # 将 列表格式的经纬度范围转化为 字符串格式的经纬度范围
-        self.setParams(rectParam)
-        # 使用 self.setParams() 方法 更新 self.searchUrlParams 参数字段
+        self.setParams('search',rectParam)          #使用 self.setParams() 方法 更新 get() 方法的附带参数 'polygon' 字段的值
+
         try:
-            result = requests.get(self.url, params=self.urlParams, timeout=10, headers=GetRectPoi.headers)
-            if result.json()['status'] == '1':  # 在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()  # 得到json格式的数据
-                # poiCount = int(resultJson['count'])          #从 'count' 字段 得到 poi的 个数
-                poisPage = resultJson  # 把 键值对 {'rect' : rect} 更新到 resultJson
-                return poisPage         #返回 poi 的列表
-            elif result.json()['status'] == '6':  # 在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('too fast, 120s retry!')
-                time.sleep(120)  # 暂停120秒后 迭代 本函数
-                return self.getPoi(rect)  # 暂停120秒后 迭代 本函数
-            elif result.json()['status'] == '0':  # 在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')  # 暂停3秒
-                time.sleep(3)
-                self.setParams({'key': self.amapKey.getKey()})  # 更换key
-                return self.getPoi(rect)  # 迭代 本函数
+            result = proxy.get(self.searchUrl, params = self.searchUrlParams, timeout = 10, headers = self.searchUrlHeaders)
+            self.retryCount = self.retryCount + 1
+            # 请求重试次数加1
+            if result.status_code==200:
+            # 判断返回的 http status_code 状态码 是否为200,  200:返回正常, 404:页面未找到 500:服务器内部错误
+                if self.isJsonStr(result.text):
+                # 判断返回的页面是否为json 序列
+                    resultJson = result.json()
+                    # 得到json格式的数据
+                    if resultJson['status'] == '1':
+                    # 在高德地图的api中 'status' 返回  '1'为正常, '6'为'too fast'请求过快, '0' 为 'invalid key' key出问题了
+                        return  dict(resultJson)
+                        # 返回 resultJson 字典
+
+                    elif resultJson['status'] == '6':
+                        sleep(triangular(1.0,3.0))
+                        # 暂停脚本 1到3秒的时间
+                        print("错误,被Amap ban了,amap status:", resultJson['status'], "/ninfo:", resultJson['info'], "Retry...")
+                        return self.getPoiPage(rect, self.changeProxy)
+                        # 更换代理 迭代本方法
+
+                    elif resultJson['status'] == '0':
+                        sleep(triangular(0,2.0))
+                        print("错误,被Amap ban了,amap status:", resultJson['status'], "/ninfo:", resultJson['info'], "Retry...")
+                        return self.getPoiPage(rect, proxy)
+                        # 迭代本方法自动更换 key
+                else:
+                    print("页面返回值为无效的json序列!")
+
+            elif result.status_code==403:
+                sleep(triangular(0, 2.0))
+                print("Http错误:", result.reason, "Retry...")
+                return self.getPoiPage(rect,  self.changeProxy)
+                # 更换代理 迭代本方法
+
             else:
-                return 0
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened, Please wait 3 seconds')
-            return -3
+                print("http status_code 错误:", result.status_code,"\nreason :", result.reason, "Retry...")
+                sleep(triangular(0, 2.0))
+                return self.getPoiPage(rect, self.changeProxy)
+                # 更换代理 迭代本方法
+
+        except Exception as e:
+            print('出现异常:', e, '\nRetry...')
+            sleep(triangular(0, 2.0))
+            return self.getPoiPage(rect, self.changeProxy)
+
+
+    def getRectPoiCount(self,rect, proxy=requests.session):
+        '''
+        接收 self.getPoiPage() 方法返回的 http json 字典 来确认索矩形范围内的 POI 的数量
+        :param rect: # 接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
+        :param proxy: # 一个使用代理的 requests.session 对象
+        :return: #通过解析返回POI数量的json 此方法的返回值为 键值对 {'rect' : rect, 'count' : 742}
+                  # 若失败, 返回 0
+        '''
+        resultJson = self.getPoiPage(rect, proxy)
+        # getPoiPage() 方法返回值为 http结果的json数据 的 字典
+        if "count" in resultJson.keys():
+        # 如果字典中存在key: "count"
+            rectPoiCount = {'rect': rect, 'count': int(resultJson.get('count',None))}
+            # 把 键值对 {'rect' : rect, 'count': 339}  保存到 rectPoiCount
+            return  dict(rectPoiCount)
+            # 返回 rect 和 poiCount 的字典
+        else:
+            return 0
 
 
 
-    def getRectPoiNumber(self,rect):
-        #分割RECT矩形,如果经纬度矩形内的POI个数大于800个
-        # 就把此矩形递归的分割成四等份,类似于四叉树,
-        # 并且将包含矩形内POI数量和矩形rect的列表 保存在self.subRectPosCount列表中
-        result = self.getPoi(rect)       #传入的参数为 rect,获取rect范围内的POI数量,
-        if  not isinstance(result,int) :          #如果返回值为不为int型(为列表)
-            if int(result['count']) > 500 :       #如果返回的poi个数 大于 800
+    def getSubRect(self, rect, poiNum, proxy=requests.session):
+        """
+        # 分割RECT矩形,如果经纬度矩形内的POI个数大于指定的个数(poiNum)
+        # 就把此矩形递归的分割成四等份,类似于田字格
+        # 返回包含矩形内POI数量和矩形rect的列表 保存在self.subRects列表中
+        :param rect: # 接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
+        :param proxy: # 一个使用代理的 requests.session 对象
+        :param poiNum: #  一个矩形范围内的 最多有多少个 poi
+        :return: # 返回矩形内包含POI数量和矩形rect的列表 保存在self.subRects 列表中
+                  # 出错返回值 为 0 
+        """
+        result = self.getRectPoiCount(rect, proxy)      #传入的参数为 rect,获取rect范围内的POI数量,
+        if  not isinstance(result,int) :          #如果返回值为不为int型(为字典类型)
+            if int(result['count']) > poiNum :    #如果返回的poi个数 大于规定的个数 poiNum
                 rects = cutRect(rect)                       #将rect分割为四等份
                 for subRect in rects :                      #递归四个子矩形rect
-                    print(self.getRectPoiNumber(subRect))
-            elif int(result['count']) <= 500 :        #如果 返回的rect内的POI个数 小于800,
+                    print(self.getSubRect(subRect, poiNum, proxy))
+            elif int(result['count']) <= poiNum :        #如果 返回的rect内的POI个数 小于规定的个数 poiNum
                 rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
-                self.subRectPosCount.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-            return 1                    #返回 1 表示正常
+                self.subRects.append(dict(rectPoiCount))       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
+                return 1  # 返回 1 表示正常
         else :
             print(result)
-            return result           #如果返回值为 int, 说明返回的是出错代码 小于1的整数
+            return result           #如果返回值为 int, 说明返回的是出错代码 为 0
+
+
+
+
+
+
+
+
+
 
 
     def getPoiID(self,rect):
@@ -423,4 +471,8 @@ if __name__ == '__main__' :
     #   [108.774989,34.41341], [109.149898,34.102978]
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect =[[108.924463,34.269687], [108.946908,34.259437]]
-    getAmapInfo(rect)
+    noProxy = requests.session()
+
+    test = GetRectPoi()
+    countTest = test.getRectPoiCount(rect,noProxy)
+    print(countTest)
