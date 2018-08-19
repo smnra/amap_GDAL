@@ -22,7 +22,8 @@ from decodeDzdpPoi import *
 from createNewDir import *
 from coordinateTranslate import *
 from time import sleep
-import sys, os, csv, re,random
+import sys, os, csv, re
+from random import triangular,randint
 import getProxyFromProxyPools as proxy
 
 sys.setrecursionlimit(1500)  # set the maximum depth as 1500
@@ -137,6 +138,7 @@ class getDianpingInfoAPI():
             return
         else:
             print("getCategorys Error! 请检查验证码!")
+            sleep(1.36531)
             # self.changeProxy()    # 更改代理
             return self.getCategorys()     #迭代本方法
 
@@ -213,6 +215,7 @@ class getDianpingInfoAPI():
             return poiCount
         else:
             print("http返回状态码异常:",result.status_code, self.poiPageUrl)     # 更换代理
+            sleep(triangular(1, 2.0))
             return self.getPagePois()
 
 
@@ -385,12 +388,23 @@ class getDianpingInfoAPI():
 
 
 if __name__=='__main__':
-    dianping = getDianpingInfoAPI(17)     # 初始化对象  参数为城市ID
-    # print(dianping.getPoiCoordinate('550409'))
-    dianping.getCategorys()    # 获取分类信息
-    # dianping.regions = [1754]
-    # dianping.categorys = [110]
-    dianping.getCurrentPoi()              # 读取 采集进度
+    [{"name": "西安,陕西", "id": "17"},
+    {"name": "咸阳,陕西", "id": "292"},
+    {"name": "宝鸡,陕西", "id": "291"},
+    {"name": "延安,陕西", "id": "294"},
+    {"name": "汉中,陕西", "id": "295"},
+    {"name": "渭南,陕西", "id": "293"},
+    {"name": "安康,陕西", "id": "297"},
+    {"name": "铜川,陕西", "id": "290"}]
 
-    dianping.main()
-    print(123)
+    for i in [299]:
+        dianping = getDianpingInfoAPI(i)     # 初始化对象  参数为城市ID
+
+        # print(dianping.getPoiCoordinate('550409'))
+        dianping.getCategorys()    # 获取分类信息
+        # dianping.regions = [1754]
+        # dianping.categorys = [110]
+        dianping.getCurrentPoi()              # 读取 采集进度
+
+        dianping.main()
+        print(123)

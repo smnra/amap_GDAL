@@ -48,17 +48,17 @@ class GetRectPoi():
         self.polygonUrlParams = {'id' : ''}         # 初始 boundUrl 的 附带参数
 
         self.searchUrlHeaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-                        "Accept-Encoding": "gzip, deflate",
-                        "Accept-Language": "zh-CN,zh;q=0.9",
-                        "Connection": "keep-alive",
-                        "Cookie": "key=bfe31f4e0fb231d29e1d3ce951e2c780; guid=b62c-103a-88ca-1534; isg=BGhox-wZp35qUIv697t9Zvi6OVa6Ocz1wvvAUyKd9ePMfQHnyqFwKo_8cdUo1oRz",
-                        "DNT": "1",
-                        "Host": "restapi.amap.com",
-                        "Pragma": "no-cache",
-                         "Cache-Control": "no-cache",
-                        "Upgrade-Insecure-Requests": "1",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"
-                        }        # 初始 searchUrl 的 headers 字典
+                                "Accept-Encoding": "gzip, deflate",
+                                "Accept-Language": "zh-CN,zh;q=0.9",
+                                "Connection": "keep-alive",
+                                "Cookie": "key=bfe31f4e0fb231d29e1d3ce951e2c780; guid=b62c-103a-88ca-1534; isg=BGhox-wZp35qUIv697t9Zvi6OVa6Ocz1wvvAUyKd9ePMfQHnyqFwKo_8cdUo1oRz",
+                                "DNT": "1",
+                                "Host": "restapi.amap.com",
+                                "Pragma": "no-cache",
+                                "Cache-Control": "no-cache",
+                                "Upgrade-Insecure-Requests": "1",
+                                "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"
+                                }        # 初始 searchUrl 的 headers 字典
 
         self.polygonUrlHeaders = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
                                 "Accept-Encoding": "gzip, deflate, br",
@@ -90,6 +90,13 @@ class GetRectPoi():
 
     def changeKey(self):
         self.key = self.amapKey.getKey()  # 调用更换Key 的方法
+        self.searchUrlParams['key'] = self.key
+        cookie = self.searchUrlHeaders["Cookie"].split(";")
+        for i in range(len(cookie)):
+            if "key=" in cookie[i]:
+                self.searchUrlHeaders["Cookie"].replace(cookie[i].split("=")[1], self.key)
+
+        #"Cookie": "key=bfe31f4e0fb231d29e1d3ce951e2c780; guid=b62c-103a-88ca-1534; isg=BGhox-wZp35qUIv697t9Zvi6OVa6Ocz1wvvAUyKd9ePMfQHnyqFwKo_8cdUo1oRz",
 
     def changeUserAgnet(self, option):
         ''' 随机更换请求头的 用户代理 User-Agent '''
@@ -248,29 +255,26 @@ class GetRectPoi():
         :param proxy: # 一个使用代理的 requests.session 对象
         :param poiNum: #  一个矩形范围内的 最多有多少个 poi
         :return: # 返回矩形内包含POI数量和矩形rect的列表 保存在self.subRects 列表中
-                  # 出错返回值 为 0 
+                  # 出错返回值 为 0
         """
         result = self.getRectPoiCount(rect, proxy)      #传入的参数为 rect,获取rect范围内的POI数量,
         if  not isinstance(result,int) :          #如果返回值为不为int型(为字典类型)
             if int(result['count']) > poiNum :    #如果返回的poi个数 大于规定的个数 poiNum
                 rects = cutRect(rect)                       #将rect分割为四等份
                 for subRect in rects :                      #递归四个子矩形rect
-                    print(self.getSubRect(subRect, poiNum, proxy))
+                    self.getSubRect(subRect, poiNum, proxy)     # 调用自己 不能用return
             elif int(result['count']) <= poiNum :        #如果 返回的rect内的POI个数 小于规定的个数 poiNum
-                rectPoiCount = {'rect': rect, 'count': int(result['count'])}            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
-                self.subRects.append(dict(rectPoiCount))       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
-                return 1  # 返回 1 表示正常
+                rectPoiCount = dict({'rect': rect, 'count': int(result['count'])})            #整理为字典格式的数据  如:{'rect': [[107.889573, 35.269261], [108.406868, 34.76011]], 'count': 367}
+                self.subRects.append(rectPoiCount)       #将返回包含矩形内POI数量和矩形rect的列表 添加到self.subRectPosCount
+                print("最小子矩形: ", rectPoiCount)
+                return rectPoiCount  # 返回  正常
         else :
             print(result)
             return result           #如果返回值为 int, 说明返回的是出错代码 为 0
 
 
-
-
-
-
-
-
+    def getPoiInfo(self, rect, proxy=requests.session):
+        pass
 
 
 
@@ -472,7 +476,6 @@ if __name__ == '__main__' :
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect =[[108.924463,34.269687], [108.946908,34.259437]]
     noProxy = requests.session()
-
     test = GetRectPoi()
-    countTest = test.getRectPoiCount(rect,noProxy)
+    countTest = test.getSubRect(rect, 100, noProxy)
     print(countTest)

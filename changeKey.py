@@ -14,7 +14,7 @@ class Keys():
     def __init__(self):
         self.keyCurrentIndex = random.randint(0,4)  # 初始化当前使用的key的 index
         self.keyCurrent = self.amap_web_keys[self.keyCurrentIndex]  # 初始化当前key
-        print('Current used key is :',self.keyCurrent, ', Index is :', self.keyCurrentIndex)
+        # print('Current used key is :',self.keyCurrent, ', Index is :', self.keyCurrentIndex)
 
 
     def getKey(self):
@@ -24,7 +24,7 @@ class Keys():
             self.keyCurrentIndex = self.keyCount - 1  # 则重新初始化当前正在使用的key的index(复位keyCurrentIndex)
 
         self.keyCurrent = self.amap_web_keys[self.keyCurrentIndex]  # 获取key 为 列表中的 当前正在使用的Key的上一个 Key
-        print('Current used key is :',self.keyCurrent, ', Index is :', self.keyCurrentIndex)
+        # print('Current used key is :',self.keyCurrent, ', Index is :', self.keyCurrentIndex)
         return self.keyCurrent
 
 if __name__ == '__main__' :
