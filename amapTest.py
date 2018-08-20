@@ -1,4 +1,14 @@
-# -*- coding:UTF-8 -*-
+#!usr/bin/env python
+#-*- coding:utf-8 _*-
+
+"""
+@author:Administrator
+@file: dianping_API.py
+@time: 2018/08/{DAY}
+描述: 大众点评 API
+返回json格式的结果
+"""
+
 
 import requests
 from changeKey import Keys              #导入更换Key 的模块
@@ -6,11 +16,11 @@ from fake_useragent import UserAgent
 from time import sleep
 from cutRect import cutRect, rectToPoint
 import createShapeFile
-import arrow, os, json
+import arrow, os, json, csv
 from random import triangular,randint
 import geoOperation
 from getProxyFromProxyPools import ChangeProxy
-
+from createNewDir import *
 
 
 poi_search_url = "http://restapi.amap.com/v3/place/text"
@@ -29,7 +39,7 @@ class GetRectPoi():
     # page 为页数  '1'
 
 
-    def __init__(self):
+    def __init__(self,rect):
         self.polygonUrl = 'https://www.amap.com/detail/get/detail'
         '''
         用于获取建筑物边界的 url: 'https://www.amap.com/detail/get/detail?id=B001D088Y7'
@@ -43,7 +53,7 @@ class GetRectPoi():
         self.searchUrlParams = {  'key': 'dc44a8ec8db3f9ac82344f9aa536e678',
                                   'polygon': '',                   #self.rectToPolygonStr(rect),
                                   'extensions': 'all',
-                                  'offset': '10',
+                                  'offset': '20',
                                   'page': '1' }        # 初始 searchUrl 的 附带参数
         self.polygonUrlParams = {'id' : ''}         # 初始 boundUrl 的 附带参数
 
@@ -76,16 +86,24 @@ class GetRectPoi():
 
         self.proxyPools = ChangeProxy()                        #实例化代理池类
         self.changeProxy = self.proxyPools.changeProxyIP()     # 调用更换代理方法
-        self.noProxy = requests.session                     # 无代理的requests.session 对象
+        self.noProxy = self.proxyPools.noProxyIP()              # 无代理的requests.session 对象
         self.ua = UserAgent()  # 初始化 随机'User-Agent' 方法
         self.amapKey = Keys()                                  # 实例化 Keys 类对象
+        self.pageCount = 0                                     # 用于计数 表示获取了多少页POI 用来 判断是否是最后一页
         self.retryCount = 0                                    # 重试次数
-        self.sourceRect = ''
         ''' 定义源矩形的对象坐标 '''
-        self.subRects = []       #分割rect后的列表  信息
-
+        self.rect = rect         # 定义初始的 rect
+        self.subRects = []       #分割rect后的列表信息 格式为字典的列表
+        self.strSubRects = []       #分割rect后的列表信息 格式为 字符串的列表
         self.createTime = arrow.now().format('YYYYMMDDHHmmss')
-        self.filePath = os.getcwd()  +  '\\tab\\' + self.createTime + '\\'        #拼接文件夹以当天日期命名
+        self.filePath = os.getcwd()  +  '\\tab\\'+ str(self.rect)        #拼接文件夹以当天日期命名
+        createDir(self.filePath)
+        self.currentPoiFileName = r'./tab/' + str(self.rect) +  r'/currentPoi.dat'  # 保存进度的文件路径
+        self.poisFileName = r'./tab/'  + str(self.rect) +  r'/pois.csv'  # 保存POI信息的文件路径
+        self.subRectsFileName = r'./tab/'  + str(self.rect) +  r'/subRects.dat'  # 保存subRects的文件
+        self.currentRect = ""           # 当前正在处理的 rect
+        self.currentPage = 1            #　当前正在处理的 页数
+        self.currentRectIndex = 0       # 用于保存当前采集Rect的索引
         self.pois = []                  #用来保存poi数据的 列表
 
     def changeKey(self):
@@ -274,33 +292,125 @@ class GetRectPoi():
 
 
     def getPoiInfo(self, rect, proxy=requests.session):
-        pass
+        '''
+        根据矩形范围获取矩形范围内的 POI 的是数量 和 POI的列表的列表[count, poiList]
+        :param rect: # 接收的参数为 矩形框的 坐标 [[108.889573,34.269261], [108.924163,34.250959]]
+        :param proxy: # 一个使用代理的 requests.session 对象
+        :return: # 返回 该参数定义的矩形范围内的 POI 的是数量 和 POI的列表
+        '''
+        self.currentRect = rect                # 保存此 rect 为 当前的rect
+        while int(rect.get('count'))>(self.currentPage + 1) * int(self.searchUrlParams['offset']):
+            resultJson = self.getPoiPage(rect['rect'], proxy)  # 传入的参数为 rect,获取rect范围内的POI数量
+            if not isinstance(resultJson, int) and 'pois' in resultJson.keys():  # 如果返回值为不为int型(为字典类型)
+                self.currentPage += 1          # 页数加1
+                self.searchUrlParams['page'] = str(self.currentPage)
+                for poi in resultJson['pois']:
+                    adcode = poi.get('adcode', '')
+                    address = poi.get('address', '')
+                    alias = ";".join(poi.get('alias', ''))
+                    businessArea = ";".join(poi.get('business_area', ''))
+                    cityCode = poi.get('citycode', '')
+                    cityName = poi.get('cityname', '')
+                    discountNum = poi.get('discount_num', '')
+                    email = ";".join(poi.get('email', ''))
+                    entrLocation = str(poi.get('entr_location', ''))
+                    exitLocation = str(poi.get('exit_location', ''))
+                    gridCode = poi.get('gridcode', '')
+                    id = poi.get('id', '')
+                    indoorMap = poi.get('indoor_map', '')
+                    location = poi.get('location', '')
+                    name = poi.get('name', '')
+                    naviPoiId = poi.get('navi_poiid', '')
+                    photos = str(poi.get('photos', ''))
+                    parkingType =poi.get('parking_type', '')
+                    pcode = poi.get('pcode', '')
+                    panme = poi.get('pname', '')
+                    recommend = poi.get('recommend', '')
+                    shopId = ";".join(poi.get('shopid', ''))
+                    shopInfo = poi.get('shopinfo', '')
+                    tag = ";".join(poi.get('tag', ''))
+                    tel = ";".join(poi.get('tel', ''))
+                    type = poi.get('type', '')
+                    typeCode = poi.get('typecode', '')
+                    webSite = ";".join(poi.get('website', ''))
+                    self.pois.append([adcode, address, alias, businessArea, cityCode, cityName, discountNum,
+                                     email, entrLocation, exitLocation, gridCode, id, indoorMap, location,
+                                     name, naviPoiId, photos, parkingType, pcode, panme, recommend, shopId,
+                                     shopInfo, tag, tel, type, typeCode, webSite, address
+                                     ])       # 添加到self.pois 列表
+            else:
+                print(resultJson)
+                return resultJson  # 如果返回值为 int, 说明返回的是getRectPoiCount()的出错代码 为 0
+
+            print(poi.get('name', ''))
+        else: self.saveFile()       # 保存POI文件 和 进度文件
 
 
 
-    def getPoiID(self,rect):
-        #此方法执行完将返回 rect内 POI信息 将保存在self.pois 列表中
-        result = {}
-        result = self.getRectPoiNumber(rect)
-        if result == 1 :    #getRectPoiNumber()方法的返回值正常
-            if len(self.subRectPosCount) > 0 :      # getRectPoiNumber()  添加到 列表  self.subRectPosCount[]  此列表为获取到的所有子矩形 保存的列表
-                for subRect in self.subRectPosCount:        #遍历每一个子矩形
-                    notEnd = True                    #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
-                    page = 0                          #定义当前获取页索引
-                    while notEnd:
-                        page = page + 1             #页数加1
-                        rectParam = {'page': str(page)}
-                        self.setParams(rectParam)  # 使用 self.setParams() 方法 更新 get()方法  'page' 的字段 的值
-                        result = self.getPoi(subRect['rect'])           #一个result 就是一页 POI
-                        if not isinstance(result,int) :                 #如果返回的result 为int 类型 则为出错
-                            currentPagePoiNumber = len(result['pois'])      #currentPagePoiNumber 当前页的POI的数量
-                            if (currentPagePoiNumber - 10 < 0) and  (int(result['count'])  - len(self.pois) < 9 ) :                 #isEnd 如果此页的poi数量小于10 并且 存储poi 的 列表 self.pois 长度 和 网页返回 的 poi数量 result['counter'] 差小于9 则认为此页是最后一页
-                                notEnd = False                              #如果当前页获取到的poi数量小于10 则 认为是最后一页
-                            if currentPagePoiNumber > 0:                                   # 如果获取到前页的POI的数量不为0
-                                for poi in result['pois'] : #遍历每一个 POI
-                                    self.pois.append(poi)
-                                    print(str(poi))
-        return  self.pois
+    def saveFile(self):
+        csvfile = open(self.poisFileName, 'a+', newline='', encoding='utf8')  # 内容写入 csv文件
+        writer = csv.writer(csvfile)
+        writer.writerows(self.pois)
+        csvfile.close()
+        with open(self.currentPoiFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+            f.writelines(self.currentRect + "_" + self.currentPage)
+        self.pois = []   # 清空 self.pois
+        self.currentPage = 1    #正在采集页 置为 0
+        print("保存文件完成!")
+
+    def loadCurrent(self,rect):
+        """
+        rect 查找分割后的子矩形保存的文件,若找到则 载入, 如果未找到,则获取
+        查找存储poi数据的csv文件 如果未找到,则新建此文件,并写入表头,
+        如果找到,则继续查找保存采集进度的文件,若未找到,则设置进度从头开始,若找到进度文件, 则载入并设置采集进度
+        :param rect: 原始的rect
+        :return: 无返回值
+        """
+        # 若存在文件,则载入 subRects 列表文件 , 若不存在,则获取 subRects 的列表
+        if not isExistPath(self.subRectsFileName):  # 如果不存在 self.subRectsFileName  (源矩形分割后的子矩形列表文件)
+            noProxy = requests.session()
+            self.getSubRect(rect, 100, noProxy)  # 分割RECT
+            self.strSubRects = [str(subRect) for subRect in self.subRects]           # 把rect列表转化为str字符串 字典的序列化
+            with open(self.subRectsFileName, 'w', encoding='utf-8', errors=None) as f:  # 将采集进度写入文件
+                f.writelines('\n'.join(self.strSubRects))
+        else:
+            with open(self.subRectsFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
+                self.strSubRects = f.readlines()                                        # 从文件读取 subRects的列表
+                self.subRects = [json.loads(subRect.strip('\n').replace("'",'"')) for subRect in self.strSubRects]  # 将字符串反序列化
+                # 注意此处json.loads() 转化的json字符串的key要使用 双引号 引用 否则会出错
+        #  载入进度, 写入表头
+        if not isExistPath(self.poisFileName):  # 如果不存在 pois.csv
+            with open(self.poisFileName, 'a+', encoding='utf-8', errors=None) as f:
+                f.writelines(','.join(["'adcode'", "'address'", "'alias'", "'businessArea'",
+                                       "'cityCode'", "'cityName'", "'discountNum'", "'email'",
+                                       "'entrLocation'", "'exitLocation'", "'gridCode'", "'id'",
+                                       "'indoorMap'", "'location'", "'name'", "'naviPoiId'",
+                                       "'photos'", "'parkingType'", "'pcode'", "'panme'",
+                                       "'recommend'", "'shopId'", "'shopInfo'", "'tag'",
+                                       "'tel'", "'type'", "'typeCode'", "'webSite'", "'address'"
+                                         , "\n"]))         # 写入表头
+            self.currentPoi = [0,1]
+        elif not isExistPath(self.currentPoiFileName):  # 如果不存在 currentPoiFileName.dat
+            self.currentPoi = [0,1]
+        elif isExistPath(self.currentPoiFileName):  # 如果存在 currentPoiFileName.dat
+            with open(self.currentPoiFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
+                self.currentPoi = list(f.readline().split("_")) # 从文件 currentPoi.dat 读取采集进度.
+
+
+        if self.currentPoi[0] in self.strSubRects:                           # 第一个元素为 要采集的 rect
+            self.currentRectIndex = self.subRects.index(self.currentPoi[0])   # 找到在 self.strSubRects 中的索引
+        else: self.currentRectIndex = 0
+
+        self.currentPage = int(self.currentPoi[1])          #　设置从Rect 开始的页数
+
+
+    def getMainRect(self):
+        rect = self.rect
+        self.loadCurrent(rect)
+        for subRect in self.subRects[self.currentRectIndex:]:
+            test.getPoiInfo(subRect, self.noProxy)  # 获取RECT内的POI 信息
+            self.currentSubRect = subRect     # 保存当前采集的subRect
+
 
     def getPoiBound(self,poiID,proxyRequest) :
         Referer = {'Referer': 'https://www.amap.com/place/' + poiID}
@@ -466,16 +576,11 @@ def getAmapInfo(rect) :
     ##########################################################以上为创建所有POI点 的 shape图层文件
 
 
-
-
-
-
 if __name__ == '__main__' :
     #获取经纬度rect 范围内的 高德地图poi 建筑物边界 并生成shp 图形文件
     #   [108.774989,34.41341], [109.149898,34.102978]
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect =[[108.924463,34.269687], [108.946908,34.259437]]
     noProxy = requests.session()
-    test = GetRectPoi()
-    countTest = test.getSubRect(rect, 100, noProxy)
-    print(countTest)
+    test = GetRectPoi(rect)         #初始化类
+    test.getMainRect()

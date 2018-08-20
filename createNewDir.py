@@ -25,5 +25,19 @@ def createNewDir():
         os.makedirs(filePath)  # 如果不存在 创建目录
     return filePath
 
+
+def createDir(path):
+    # 此函数用于在当前目录下生成path路径的文件夹
+    # 如果此文件存在 则返回文件夹路径
+
+    if os.path.exists(path):  # 判断路径是否存在
+        print(u"目标已存在:", path)  # 如果存在 打印路径已存在,
+    else:
+        os.makedirs(path)  # 如果不存在 创建目录
+    return path
+
+
+
+
 if __name__ =='__main__' :
     print('newDir: ',createNewDir())
