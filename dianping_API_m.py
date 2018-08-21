@@ -397,7 +397,7 @@ if __name__=='__main__':
     {"name": "安康,陕西", "id": "297"},
     {"name": "铜川,陕西", "id": "290"}]
 
-    for i in [299]:
+    for i in [290]:
         dianping = getDianpingInfoAPI(i)     # 初始化对象  参数为城市ID
 
         # print(dianping.getPoiCoordinate('550409'))
