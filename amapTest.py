@@ -87,7 +87,7 @@ class GetRectPoi():
                                 }       # 初始 boundUrl 的 headers 字典
 
         self.proxyPools = ChangeProxy()                        #实例化代理池类
-        self.changeProxy = self.proxyPools.changeProxyIP()     # 调用更换代理方法
+        self.changeProxy = self.proxyPools.changeProxyIP     # 调用更换代理方法
         self.noProxy = self.proxyPools.noProxyIP()              # 无代理的requests.session 对象
         self.ua = UserAgent()  # 初始化 随机'User-Agent' 方法
         self.amapKey = Keys()                                  # 实例化 Keys 类对象
@@ -109,7 +109,7 @@ class GetRectPoi():
         self.pois = []                  #用来保存poi数据的 列表
 
         self.gps = GPS()                # 坐标系转化
-        self.gcjToWgs = self.gps.gcj_decrypt_exact()
+        self.gcjToWgs = self.gps.gcj_decrypt_exact
 
     def changeKey(self):
         self.key = self.amapKey.getKey()  # 调用更换Key 的方法
@@ -219,7 +219,7 @@ class GetRectPoi():
                         sleep(triangular(1.0,3.0))
                         # 暂停脚本 1到3秒的时间
                         print("错误,被Amap ban了,amap status:", resultJson['status'], "/ninfo:", resultJson['info'], "Retry...")
-                        return self.getPoiPage(rect, self.changeProxy)
+                        return self.getPoiPage(rect, self.changeProxy())
                         # 更换代理 迭代本方法
 
                     elif resultJson['status'] == '0':
@@ -239,13 +239,13 @@ class GetRectPoi():
             else:
                 print("http status_code 错误:", result.status_code,"\nreason :", result.reason, "Retry...")
                 sleep(triangular(0, 2.0))
-                return self.getPoiPage(rect, self.changeProxy)
+                return self.getPoiPage(rect, self.changeProxy())
                 # 更换代理 迭代本方法
 
         except Exception as e:
             print('出现异常:', e, '\nRetry...')
             sleep(triangular(0, 2.0))
-            return self.getPoiPage(rect, self.changeProxy)
+            return self.getPoiPage(rect, self.changeProxy())
 
 
     def getRectPoiCount(self,rect, proxy=requests.session):
@@ -312,23 +312,32 @@ class GetRectPoi():
                 for poi in resultJson['pois']:
                     adcode = poi.get('adcode', '')
                     address = poi.get('address', '')
-                    alias = ";".join(poi.get('alias', ''))
-                    businessArea = ";".join(poi.get('business_area', ''))
+
+                    alias = poi.get('alias', '')
+                    if isinstance(alias,list): alias = "".join(alias)
+
+                    businessArea = poi.get('business_area', '')
+                    if isinstance(businessArea,list): businessArea = ";".join(businessArea)
+
                     cityCode = poi.get('citycode', '')
                     cityName = poi.get('cityname', '')
                     discountNum = poi.get('discount_num', '')
                     email = ";".join(poi.get('email', ''))
                     entrLocation = poi.get('entr_location', '')
+                    if entrLocation and isinstance(entrLocation,list):     # entrLocation 有的时候是个列表 有的时候是个字符串
+                        entrLocation = entrLocation[0].split(",")
+                    elif entrLocation and isinstance(entrLocation,str):
+                        entrLocation = entrLocation.split(",")
                     if entrLocation:                                #gcj 坐标系转化为 wgs 坐标系
-                        wgsEntrCoordi = self.gcjToWgs(entrLocation[1], entrLocation[0])
-                        entrLocation = ";".join(wgsEntrCoordi[::-1])
+                        wgsEntrCoordi = self.gcjToWgs(float(entrLocation[1]), float(entrLocation[0]))
+                        entrLocation = str(wgsEntrCoordi['lon'])  + "," + str(wgsEntrCoordi['lat'])
                     gridCode = poi.get('gridcode', '')
                     id = poi.get('id', '')
                     indoorMap = poi.get('indoor_map', '')
-                    location = poi.get('location', '')
+                    location = poi.get('location', '').split(",")
                     if location:                                       #gcj 坐标系转化为 wgs 坐标系
-                        wgslocation = self.gcjToWgs(location[1], location[0])
-                        location = ";".join(wgslocation[::-1])
+                        wgsLocation = self.gcjToWgs(float(location[1]), float(location[0]))
+                        location = str(wgsLocation['lon']) + "," + str(wgsLocation['lat'])
                     name = poi.get('name', '')
                     naviPoiId = poi.get('navi_poiid', '')
                     photos = str(poi.get('photos', ''))
@@ -343,11 +352,13 @@ class GetRectPoi():
                     type = poi.get('type', '')
                     typeCode = poi.get('typecode', '')
                     webSite = ";".join(poi.get('website', ''))
+                    detail = self.getPoiBound(id,proxy)
+
                     poiInfo = [adcode, address, alias, businessArea, cityCode, cityName, discountNum,
                                 email, entrLocation, gridCode, id, indoorMap, location,
                                 name, naviPoiId, photos, parkingType, pcode, panme, recommend, shopId,
                                 shopInfo, tag, tel, type, typeCode, webSite, address
-                                ]
+                                ] + detail
                     poiInfo = list(["'" + str(item) + "'" for item in poiInfo])  # 增加csv界定符
                     self.pois.append(poiInfo)       # 添加到self.pois 列表
 
@@ -403,7 +414,14 @@ class GetRectPoi():
                                        "'indoorMap'", "'location'", "'name'", "'naviPoiId'",
                                        "'photos'", "'parkingType'", "'pcode'", "'panme'",
                                        "'recommend'", "'shopId'", "'shopInfo'", "'tag'",
-                                       "'tel'", "'type'", "'typeCode'", "'webSite'", "'address'"
+                                       "'tel'", "'type'", "'typeCode'", "'webSite'", "'address'",
+                                       "'bcsBase'",  "'businessBase'",  "'classIfyBase'",
+                                       "'codeBase'",  "'nameBase'",  "'tagBase'",  "'titleBase'",
+                                       "'aoisBase'",  "'xy'",  "'buildingTypesDeep'",  "'businessDeep'",
+                                       "'priceDeep'",  "'propertyFeeDeep'",  "'reviewDeep'",
+                                       "'CountReview'",  "'aoiidShape'",  "'areaShape'",
+                                       "'centerShape'",  "'levelShape'",  "'pylgonShape'",
+                                       "'spTypeShape'",  "'typeShape'"
                                          , "\n"]))         # 写入表头
         elif isExistPath(self.currentPoiFileName):  # 如果存在 currentPoiFileName.dat
             with open(self.currentPoiFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
@@ -420,7 +438,6 @@ class GetRectPoi():
             self.currentRectIndex, self.searchUrlParams['page'] = self.currentPoi
 
 
-
     def getMainRect(self):
         rect = self.rect
         self.loadCurrent(rect)
@@ -428,15 +445,137 @@ class GetRectPoi():
             self.currentSubRect = subRect  # 保存当前采集的subRect
             test.getPoiInfo(subRect, self.noProxy)  # 获取RECT内的POI 信息
 
+    def getPoiBound(self,id, proxy=requests.session()):
+        resultJson = self.getPoiBoundJson(id, proxy)
+        base = []
+        deep = []
+        review = []
+        shape = []
+        if isinstance(resultJson,dict):
+                # if not isinstance(resultJson,int):
+                itemBase = resultJson.get('data','').get('base','')
+                """ base 字典数据提取,  不是字典,则此列表为空字符列表"""
+                if isinstance(itemBase, str):
+                    base = [""]*8
+                else:
+                    bcsBase= itemBase.get('bcs','')
+                    businessBase= itemBase.get('business','')
+                    classIfyBase= itemBase.get('classify','')
+                    codeBase= itemBase.get('code','')
+                    nameBase= itemBase.get('name','')
+                    tagBase= itemBase.get('tag','')
+                    titleBase= itemBase.get('title','')
+                    aois = itemBase.get('geodata', '').get('aoi', '')
+                    aoisBase = ";".join([str(list(aoi.values())) for aoi in aois])
+                    xy = [itemBase.get('x',''),itemBase.get('y','')]
+                    if xy:                                       #gcj 坐标系转化为 wgs 坐标系
+                        wgsLocation = self.gcjToWgs(float(xy[1]), float(xy[0]))
+                        xy = str(wgsLocation['lon']) + "," + str(wgsLocation['lat'])
+                    base = [bcsBase, businessBase, classIfyBase, codeBase, nameBase, tagBase, titleBase, aoisBase, xy]
 
-    def getPoiBound(self,poiID,proxyRequest) :
-        Referer = {'Referer': 'https://www.amap.com/place/' + poiID}
-        self.setHeader(Referer)  # 使用 self.setHeader() 方法 更新  RequestHeader 中的 Referer 字段中的 poiID
+                itemDeep = resultJson.get('data', '').get('Deep', '')
+                """ deep 字典数据提取,  不是字典,则此列表为空字符列表"""
+                if isinstance(itemDeep, str):
+                    deep = [""] * 5
+                else:
+                    buildingTypesDeep = itemDeep.get('building_types', '')
+                    businessDeep = itemDeep.get('business','')
+                    priceDeep = itemDeep.get('price','')
+                    propertyFeeDeep = itemDeep.get('property_fee','')
+                    reviewDeep =  str(itemDeep.get('review',''))
+                    deep = [buildingTypesDeep, businessDeep, priceDeep, propertyFeeDeep, reviewDeep]
+
+                itemReview = resultJson.get('data', '').get('rti', '')
+                """ rti 字典数据提取, 不是字典,则此字段为空字符"""
+                if isinstance(itemReview, str):
+                    CountReview = ""
+                else :
+                    CountReview = itemReview.get('review_count','')
+                review = [CountReview]
+
+                itemShape = resultJson.get('data', '').get('spec', '').get('mining_shape', '')
+                """ mining_shape 字典数据提取,  不是字典,则此列表为空字符列表"""
+                if isinstance(itemShape, str):
+                    shape = [""]*7
+                else:
+                    aoiidShape = itemShape.get('aoiid','')
+                    areaShape = itemShape.get('area','')
+                    centerShape = itemShape.get('center','')
+                    levelShape = itemShape.get('level','')
+                    pylgonShape =  itemShape.get('shape','')
+                    spTypeShape =  itemShape.get('sp_type','')
+                    typeShape =  itemShape.get('type','')
+                    shape = [aoiidShape, areaShape, centerShape, levelShape, pylgonShape, spTypeShape, typeShape]
+
+        return  base + deep + review + shape
+
+
+
+    def getPoiBoundJson(self, poiID, proxy=requests.session):
+        '''
+        返回 包含 pylgon 的 request.get返回的 字典对象
+        :param poiID:poi id
+        :param proxy: requests.session 附带一个代理
+        :return: 返回 包含 pylgon 的 request.get返回的 字典对象
+        '''
+        self.changeUserAgnet('pylgon')              # 更换 http header 的 浏览器用户代理
+        self.changeCookie('pylgon', cookie="")      # 更换 http header 的  cookie
+        self.polygonUrlParams = {'id': poiID}
+        try:
+            result = proxy.get(self.polygonUrl, params=self.polygonUrlParams, timeout=10, headers=self.polygonUrlHeaders)
+            if result.status_code==200:
+                # 判断返回的 http status_code 状态码 是否为200,  200:返回正常, 404:页面未找到 500:服务器内部错误
+                if self.isJsonStr(result.text):
+                    # 判断返回的页面是否为json 序列
+                    resultJson = result.json()
+                    # 得到json格式的数据
+                    if resultJson['status'] == '1':
+                    # 在高德地图的api中 'status' 返回  '1'为正常, '6'为'too fast'请求过快, '0' 为 'invalid key' key出问题了
+                        return  dict(resultJson)
+                        # 返回 resultJson 字典
+
+                    elif resultJson['status'] == '6':
+                        sleep(triangular(3.0,6.0))
+                        # 暂停脚本 1到3秒的时间
+                        print("错误,被Amap ban了,amap status:", resultJson['status'], "\nInfo:", resultJson['data'], ",Retry...")
+                        return self.getPoiBoundJson(poiID, self.changeProxy())
+                        # 更换代理 迭代本方法
+
+                    elif resultJson['status'] == '0':
+                        sleep(triangular(1.0,3.0))
+                        print("错误,被Amap ban了,amap status:", resultJson['status'], "\nInfo:", resultJson['data'], ",Retry...")
+                        return self.getPoiBoundJson(poiID, self.changeProxy())
+                        # 更换代理 迭代本方法
+                else:
+                    print("页面返回值为无效的json序列!")
+                    sleep(triangular(0, 2.0))
+                    return self.getPoiBoundJson(poiID, self.changeProxy())
+                    # 更换代理 迭代本方法
+
+            elif result.status_code==403:
+                sleep(triangular(0, 2.0))
+                print("Http错误:", result.reason, "Retry...")
+                return self.getPoiBoundJson(poiID, self.changeProxy())
+                # 更换代理 迭代本方法
+
+            else:
+                print("http status_code 错误:", result.status_code,"\nreason :", result.reason, "Retry...")
+                sleep(triangular(0, 2.0))
+                return self.getPoiBoundJson(poiID, self.changeProxy())
+                # 更换代理 迭代本方法
+
+        except Exception as e:
+            print('出现异常:', e, '\nRetry...')
+            sleep(triangular(0, 2.0))
+            return self.getPoiBoundJson(poiID, self.changeProxy())
+
+
+    def getPoiBound_1(self,poiID,proxyRequest):
 
         #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
         params = {'id' : poiID }
         try:
-            result = proxyRequest.get(self.boundURL, params = params, timeout = 10, headers = GetRectPoi.headers)
+            result = proxyRequest.get(self.boundURL, params = params, timeout = 10, headers = self.polygonUrlHeaders)
             if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
                 resultJson = result.json()                    #得到json格式的数据
                 if 'mining_shape' in resultJson.get('data','').get('spec','') :
@@ -597,7 +736,10 @@ if __name__ == '__main__' :
     #获取经纬度rect 范围内的 高德地图poi 建筑物边界 并生成shp 图形文件
     #   [108.774989,34.41341], [109.149898,34.102978]
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
-    rect =[[108.924463,34.269687], [108.946908,34.259437]]
+    rect = [[108.783916,34.443428],[109.157794,34.095302]]                  # 大西安
+    # rect =[[108.924463,34.269687], [108.946908,34.259437]]                # 测试区域
     noProxy = requests.session()
     test = GetRectPoi(rect)         #初始化类
     test.getMainRect()
+    print(len(test.pois))
+    print(len(test.pois))

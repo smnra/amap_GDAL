@@ -21,7 +21,11 @@ class ChangeProxy():
         self.cruuentProxyIP = self.getProxy()     #从proxyPools 获取一个http proxy
 
     def getProxy(self):
-        proxy =  requests.get("http://155.94.186.95:80/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get     # 155.94.186.95:80
+        try:
+            proxy =  requests.get("http://155.94.186.95:80/get/").content.decode('utf-8').split(':')     #http://123.207.35.36:5010/get     # 155.94.186.95:80
+        except Exception as e:
+            print(e,"Retry...")
+            return self.getProxy()
         self.ip,self.port = proxy
         return  proxy
 
