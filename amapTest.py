@@ -41,7 +41,7 @@ class GetRectPoi():
     # page 为页数  '1'
 
 
-    def __init__(self,rect):
+    def __init__(self,rect,typecode):
         self.polygonUrl = 'https://www.amap.com/detail/get/detail'
         '''
         用于获取建筑物边界的 url: 'https://www.amap.com/detail/get/detail?id=B001D088Y7'
@@ -95,10 +95,11 @@ class GetRectPoi():
         self.retryCount = 0                                    # 重试次数
         ''' 定义源矩形的对象坐标 '''
         self.rect = rect         # 定义初始的 rect
+        self.searchUrlParams['types'] = typecode
         self.subRects = []       #分割rect后的列表信息 格式为字典的列表
         self.strSubRects = []       #分割rect后的列表信息 格式为 字符串的列表
         self.createTime = arrow.now().format('YYYYMMDDHHmmss')
-        self.filePath = os.getcwd()  +  '\\tab\\'+ str(self.rect)        #拼接文件夹以当天日期命名
+        self.filePath = os.getcwd()  +  '\\tab\\'+ str(self.rect) + "_" + typecode        #拼接文件夹以当天日期命名 typecode 为 poi类型 id
         createDir(self.filePath)
         self.currentPoiFileName = r'./tab/' + str(self.rect) +  r'/currentPoi.dat'  # 保存进度的文件路径
         self.poisFileName = r'./tab/'  + str(self.rect) +  r'/pois.csv'  # 保存POI信息的文件路径
@@ -421,8 +422,8 @@ class GetRectPoi():
                                        "'priceDeep'",  "'propertyFeeDeep'",  "'reviewDeep'",
                                        "'CountReview'",  "'aoiidShape'",  "'areaShape'",
                                        "'centerShape'",  "'levelShape'",  "'pylgonShape'",
-                                       "'spTypeShape'",  "'typeShape'"
-                                         , "\n"]))         # 写入表头
+                                       "'spTypeShape'",  "'typeShape'" +
+                                         "\n"]))         # 写入表头
         elif isExistPath(self.currentPoiFileName):  # 如果存在 currentPoiFileName.dat
             with open(self.currentPoiFileName, 'r', encoding='utf-8', errors=None) as f:  # 将采读取进度文件
                 self.currentRect = f.readline().replace("'", '"')    # 从文件 currentPoi.dat 读取采集进度.
@@ -738,8 +739,10 @@ if __name__ == '__main__' :
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect = [[108.783916,34.443428],[109.157794,34.095302]]                  # 大西安
     # rect =[[108.924463,34.269687], [108.946908,34.259437]]                # 测试区域
-    noProxy = requests.session()
-    test = GetRectPoi(rect)         #初始化类
-    test.getMainRect()
-    print(len(test.pois))
-    print(len(test.pois))
+    typecodes = ["010000","011000","020000","021000","022000","023000","025000","026000","029000","030000","031000","032000","033000","035000","036000","039000","040000","050000","060000","061000","070000","071000","072000","080000","090000","100000","110000","120000","130000","140000","141000","150000","151000","160000","170000","180000","190000","200000","220000","970000","990000","991000"]
+    for typecode in typecodes:
+        noProxy = requests.session()
+        test = GetRectPoi(rect,typecode)         #初始化类
+        test.getMainRect()
+        print(len(test.pois))
+        print(len(test.pois))
