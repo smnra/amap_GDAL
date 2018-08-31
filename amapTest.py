@@ -101,9 +101,9 @@ class GetRectPoi():
         self.createTime = arrow.now().format('YYYYMMDDHHmmss')
         self.filePath = os.getcwd()  +  '\\tab\\'+ str(self.rect) + "_" + typecode        #拼接文件夹以当天日期命名 typecode 为 poi类型 id
         createDir(self.filePath)
-        self.currentPoiFileName = r'./tab/' + str(self.rect) +  r'/currentPoi.dat'  # 保存进度的文件路径
-        self.poisFileName = r'./tab/'  + str(self.rect) +  r'/pois.csv'  # 保存POI信息的文件路径
-        self.subRectsFileName = r'./tab/'  + str(self.rect) +  r'/subRects.dat'  # 保存subRects的文件
+        self.currentPoiFileName = r'./tab/' + str(self.rect) + "_" + typecode  +  r'/currentPoi.dat'  # 保存进度的文件路径
+        self.poisFileName = r'./tab/'  + str(self.rect) + "_" + typecode +  r'/pois.csv'  # 保存POI信息的文件路径
+        self.subRectsFileName = r'./tab/'  + str(self.rect) + "_" + typecode  +  r'/subRects.dat'  # 保存subRects的文件
         self.currentRect = ""           # 当前正在处理的 rect
         self.currentPage = 1            #　当前正在处理的 页数
         self.currentRectIndex = 0       # 用于保存当前采集Rect的索引
@@ -506,7 +506,7 @@ class GetRectPoi():
                     pylgonShape =  itemShape.get('shape','')
                     spTypeShape =  itemShape.get('sp_type','')
                     typeShape =  itemShape.get('type','')
-                    shape = [aoiidShape, areaShape, centerShape, levelShape, pylgonShape, spTypeShape, typeShape]
+                    shape = [aoiidShape, areaShape, levelShape, spTypeShape, typeShape, centerShape, pylgonShape]
 
         return  base + deep + review + shape
 
@@ -571,167 +571,6 @@ class GetRectPoi():
             return self.getPoiBoundJson(poiID, self.changeProxy())
 
 
-    def getPoiBound_1(self,poiID,proxyRequest):
-
-        #根据高德地图POI 的 ID , 获取POI 的建筑物边界 bound的坐标
-        params = {'id' : poiID }
-        try:
-            result = proxyRequest.get(self.boundURL, params = params, timeout = 10, headers = self.polygonUrlHeaders)
-            if result.json()['status'] == '1' :             #在高德地图的api中 'status' 返回  '1' 为正常
-                resultJson = result.json()                    #得到json格式的数据
-                if 'mining_shape' in resultJson.get('data','').get('spec','') :
-                    strRing = resultJson.get('data','').get('spec','').get('mining_shape','').get('shape','')
-                    if len(strRing) > 0 :
-                        pointList = strRing.split(';')                       #使用';'  把pointList 分割为列表,
-                        ring =  [x.split(',') for x in pointList]           #使用列表推导式把 pointList 中的每一项使用 ',' 分割为 列表
-                        polygon = geoOperation.Polygon(ring)                         #实例化 geoOperation 对象
-                        center = resultJson.get('data','').get('spec','').get('mining_shape','').get('center','')          #获得中心点的坐标 , 默认为 ''
-                        if polygon.isInvalidBound(center) == False:                 #如果 bound 的 各条边有出现交叉 Crosses    (判断高德地图返回的bound 是否有效)
-                            print('Polygon\'s line is Crosses, change a http proxy to retry!')
-                            changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
-                            return self.getPoiBound(poiID, changeProxyRequest)  #   迭代 本函数
-                        else :
-                            print(poiID + u' 边界正常: ' + str(ring) )
-                            return ring                                  # 没有交叉  则 返回 ring
-                    else:
-                        return -4
-                else:
-                    print(poiID + u'此 POI 不存在 mining_shape!')
-                    return -5
-            elif result.json()['status'] == '6' :           #在高德地图的api中 'status' 返回  '6' 为 'too fast'
-                print('Too fast, change a http proxy to retry!')
-                time.sleep(1)                                #暂停120秒后 迭代 本函数
-                changeProxyRequest = self.proxyPools.changeProxyIP()  # 更换一次代理
-                return self.getPoiBound(poiID, changeProxyRequest)  # 迭代 本函数
-            elif result.json()['status'] == '8':  # 在高德地图的api中 'status' 返回  '8' 为 poi ID 无效
-                print('Not found this id!')
-                time.sleep(1)  # 暂停1秒
-                return -6
-            elif result.json()['status'] == '0' :            #在高德地图的api中 'status' 返回  '0' 为 'invalid key' key出问题了
-                print('invalid key, 3s retry!')             #暂停3秒
-                time.sleep(1)
-                self.setParams({'key': self.amapKey.getKey()})      #更换key
-                return self.getPoiBound(poiID, proxyRequest)             # 迭代 本函数
-            else :
-                return -7
-        except requests.exceptions.ConnectionError:
-            print('ConnectionError -- please wait 3 seconds')
-            time.sleep(1)
-            changeProxyRequest = self.proxyPools.changeProxyIP()   # 更换一次代理changeProxyIP
-            return self.getPoiBound(poiID, changeProxyRequest)         #更换代理,迭代本方法
-            # return -1
-        except requests.exceptions.ChunkedEncodingError:
-            print('ChunkedEncodingError -- please wait 3 seconds')
-            return -2
-        except:
-            print('Unfortunitely -- An Unknow Error Happened.')
-            return -3
-
-
-def getAmapInfo(rect) :
-    # 参数 rect 为 [[108.897814, 34.2752], [108.953437, 34.257061]]   为要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
-    # proxyPools = changeProxy.ChangeProxy(r'./proxy.txt')                        #实例化代理模块 从 ./proxy.txt 文件读取
-    proxyPools = getProxyFromProxyPools.ChangeProxy()                              #实例化代理池类
-    #amapKey = Keys()  # 初始化Keys 类对象
-    #amap_web_key = amapKey.keyCurrent  # 初始值 Key列表
-    # amapKey.getKey()                #更换Key
-
-    #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]
-    #rect = [[108.897814,34.2752], [108.953437,34.257061]]       #定义要获取poi的矩形框的  左上角和右下角坐标的列表 此处分割了 四个子 rect
-    getBoundCount = 0                                           #amap 初步计算 一个ip请求30 个 bound 后 ,再取出的 bound值  就完全错乱的 或者说加密了, 此变量就是为了计数
-
-
-    createTime = arrow.now().format('YYYYMMDDHHmmss')           #创建要保存数据的文件夹
-    filePath = os.getcwd() + '\\tab\\' + createTime + '\\'  # 拼接文件夹以当天日期命名
-    if os.path.exists(filePath):  # 判断路径是否存在
-        print(u"目标已存在:", filePath)  # 如果存在 打印路径已存在,
-    else:
-        os.makedirs(filePath)  # 如果不存在 创建目录
-
-
-    rectPoi = GetRectPoi()      #实例化对象
-    #print(rectPoi.getPoiBound('B001D09SOI'))
-    poiCount =  rectPoi.getPoiID(rect)      #此方法执行完将返回所有分割后的 rect 的 POI信息 将保存在self.pois 列表中
-    print(rectPoi.subRectPosCount)                  #分割后所有的子rect 保存在 self.subRectPosCount 属性中
-    # WriteToExcel.toExcel(filePath.join('poi.xlsx'), rectPoi.pois)
-
-
-
-    ##########################################################以下为创建所有POI 建筑物边界 的 shape图层文件
-
-
-
-    boundMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = []
-    ring = []
-    '''
-    for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append(fieldName[:10],(4,254))                 #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度 , fieldName[:10]取fieldName的前十个字符
-    '''
-    fieldList = [(fieldName[:10],(4,254)) for fieldName in list(rectPoi.pois[0].keys())]           #用列表推导式生成fieldList 可以代替上面的 for 循环
-    fieldList = sorted(fieldList)           # fieldList 排序
-    dataSource = boundMap.newFile('bound.shp')                                    #创建文件
-    boundtLayer = boundMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for poi in rectPoi.pois :
-        fieldValues = []                                        #定义(清空)字段值的列表
-        proxyRequest = proxyPools.noProxyIP()                   #首次传入一个无代理的 session对象实例
-
-        '''
-       for fieldName in fieldList :                            #生成 字段值的列表
-            value = str(poi.get(fieldName[0],'') )                   #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
-            fieldValues.append(value)                           ##将value添加到fieldValues ##!!!!
-       '''
-        fieldValues = [str(poi.get(x[0], '')) for x in fieldList]           #用列表推导式代替上方的 for 循环 生成 fieldValues 列表
-
-        podId = poi.get('id',False)                              #从'id' 字段获取 poi 的 ID  如果没有 key  'id' 则默认为 ''
-        if podId :                                              #如果 podId 存在
-            if getBoundCount + 1 % 30 == 0 :
-                proxyRequest = proxyPools.changeProxyIP()        #每30次更换一次代理
-            ring = rectPoi.getPoiBound(podId,proxyRequest)
-            time.sleep(1)
-            getBoundCount += 1
-            if isinstance(ring,list) :
-                boundMap.createPolygon(boundtLayer,[ring],fieldValues)
-    ##########################################################为创建所有POI 建筑物边界 的 shape图层文件
-
-
-
-
-
-
-
-    ##########################################################以下为创建所有子矩形框的 shape图层文件
-    rectMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = [("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254))]     #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
-    dataSource = rectMap.newFile('rect.shp')                                    #创建文件
-    rectLayer = rectMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for i, subRect in enumerate(rectPoi.subRectPosCount) :                          #循环生成 rect 的  Polygon
-        ringList = [rectToPoint(subRect['rect'])]                                   #  ring的坐标对 列表
-        fieldValues = ['SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ]           #Polygon 对应的 表的值
-        rectMap.createPolygon(rectLayer, ringList, ('SubRect_'.join(str(i)), str(subRect['count']), str(subRect['rect']) ))  #创建   Polygon  并添加到地图中
-    ##########################################################以上为创建所有子矩形框的 shape图层文件
-
-
-
-    ##########################################################以下为创建所有POI点 的 shape图层文件
-    pointMap = createShapeFile.CreateMapFeature(filePath)                         #创建map对象
-    fieldList = []
-    for fieldName in list(rectPoi.pois[0].keys()) :
-        fieldList.append((fieldName[:10],(4,254)))                   #fieldList = (("name",(4,254)), ("poiCount",(4,254)), ("rect",(4,254)))      #feature对象对应表的字段的数据类型 4表示字符串 254 为字符串的长度
-    fieldList = sorted(fieldList)                                   # fieldList 排序
-
-    dataSource = pointMap.newFile('point.shp')                                    #创建文件
-    pointLayer = pointMap.createLayer(dataSource, fieldList)                             #创建Layer对象
-    for poi in rectPoi.pois :
-        fieldValues = []                                        #定义(清空)字段值的列表
-        for fieldName in fieldList :                            #生成 字段值的列表
-            value = poi.get(fieldName[0],'')                    #此处为 获取 字典poi  key名为 fieldName[0]值的 键值 ,如果没有此 key 则 使用第二个参数代替
-            fieldValues.append(value)             ####!!!!
-        x = float(poi['location'].split(',')[0])
-        y = float(poi['location'].split(',')[1])
-        pointMap.createPoint(pointLayer,x,y,fieldValues)
-    ##########################################################以上为创建所有POI点 的 shape图层文件
-
 
 if __name__ == '__main__' :
     #获取经纬度rect 范围内的 高德地图poi 建筑物边界 并生成shp 图形文件
@@ -739,7 +578,7 @@ if __name__ == '__main__' :
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect = [[108.783916,34.443428],[109.157794,34.095302]]                  # 大西安
     # rect =[[108.924463,34.269687], [108.946908,34.259437]]                # 测试区域
-    typecodes = ["010000","011000","020000","021000","022000","023000","025000","026000","029000","030000","031000","032000","033000","035000","036000","039000","040000","050000","060000","061000","070000","071000","072000","080000","090000","100000","110000","120000","130000","140000","141000","150000","151000","160000","170000","180000","190000","200000","220000","970000","990000","991000"]
+    typecodes = ["060000","061000","070000","071000","072000","080000","090000","100000","110000","120000","130000","140000","141000","150000","151000","160000","170000","180000","190000","200000","220000","970000","990000","991000"]
     for typecode in typecodes:
         noProxy = requests.session()
         test = GetRectPoi(rect,typecode)         #初始化类

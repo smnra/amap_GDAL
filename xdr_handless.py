@@ -140,17 +140,28 @@ class GetXDR():
         self.downloadPath = r'C:\Users\Administrator\Downloads'
         # 浏览器驱动
         options = webdriver.ChromeOptions()
-        prefs = {'profile.default_content_settings.popups': 0, 'download.default_directory': self.downloadPath}
+        prefs = {'profile.default_content_settings.popups': 0,
+                 'download.default_directory': self.downloadPath,
+                 "download.prompt_for_download": False,}
         options.add_experimental_option('prefs', prefs)
-        #options.add_argument("--no-sandbox")
-        # options.add_argument('--headless')
+        # options.add_argument("--no-sandbox")
+        options.add_argument('--headless')
         browserDriver = webdriver.Chrome(executable_path=driverPath, chrome_options=options)
         # browserDriver.maximize_window()     # 设置最大化
         browserDriver.set_window_size(1366,900)
         self.browserDriver = browserDriver
+
+
+        '''
+        #此段代码可能是selenium 发送 post请求的方法
+        browserDriver.command_executor._commands["send_command"] = ("POST", '/session/$sessionId/chromium/send_command')
+        params = {'cmd': 'Page.setDownloadBehavior', 'params': {'behavior': 'allow', 'downloadPath': "/path/to/download/dir"}}
+        command_result = browserDriver.execute("send_command", params)
+        '''
+
         return browserDriver
 
-        browserDriver.close()
+
 
 
 
@@ -404,7 +415,7 @@ class GetXDR():
             if queryButton:
                 queryButton.click()                 # 点击 确定
                 self.queryCompalte(browserDriver)   # 等待查询完成
-                self.exportAll(browserDriver)       # 导出
+                self.exportAll(browserDriver)       #导出
                 self.cgiList.pop(0)                 # 删除 查询过的eci
 
 
@@ -443,29 +454,28 @@ class GetXDR():
                 startExportInput.click()
                 self.count = 0                              # 等待完成迭代计数器
                 self.exportCompalte(browserDriver)          # 等待导出完成
+                # self.saveCurr()                             # 保存进度
 
 
 
     def exportCompalte(self,browserDriver):
         # 查询是否完成 返回 True
-        time.sleep(2)
         try:
+            time.sleep(1)
             browserDriver.switch_to.default_content()  # 切换到默认的ifream
-            if self.count>=100 :
-                return False
+            if self.count>=300 : return False
+            self.count = self.count +1
+            exportCompalteButton= browserDriver.find_element_by_xpath("//div[@class='footer']/button")
+            if exportCompalteButton:
+                exportCompalteButton.click()
+                print('导出完成')
+                self.saveCurr()             #保存进度
+                browserDriver.switch_to.frame(self.iframeId)  # 切换到 exportIfream
+                return True
             else:
-                self.count = self.count +1
-                exportCompalteButton= browserDriver.find_element_by_xpath("//a[@class='closebtn']")
-                if exportCompalteButton:
-                    self.saveCurr()             #保存进度
-                    exportCompalteButton.click()
-                    print('导出完成')
-                    browserDriver.switch_to.frame(self.iframeId)  # 切换到 exportIfream
-                    return True
-                else:
-                    time.sleep(1)
-                    print('正在导出...')
-                    return self.exportCompalte(browserDriver)
+                time.sleep(1)
+                print('正在导出...')
+                return self.exportCompalte(browserDriver)
         except Exception as e:
             print(e)
             return self.exportCompalte(browserDriver)
@@ -485,11 +495,7 @@ class GetXDR():
 
     def queryCompalte(self,browserDriver):
         # 查询是否完成 返回 True
-        try:
-            stopButton= browserDriver.find_element_by_xpath("//*[@id='ID_button_stop']")
-        except Exception as  e:
-            print(e)
-
+        stopButton= browserDriver.find_element_by_xpath("//*[@id='ID_button_stop']")
         if stopButton:
             if stopButton.get_attribute('class') == 'toolbar-item':
                 time.sleep(1)

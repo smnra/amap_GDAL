@@ -34,7 +34,7 @@ def createDir(path):
         print(u"目标已存在:", path)  # 如果存在 打印路径已存在,
     else:
         os.makedirs(path)  # 如果不存在 创建目录
-    return path
+    return os.path.abspath(path)
 
 
 
