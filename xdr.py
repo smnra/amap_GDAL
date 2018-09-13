@@ -288,7 +288,7 @@ class GetXDR():
         timeInputId = timeInput.get_attribute("id")
         timeInput.send_keys(Keys.CONTROL, 'a')          # 全选 ctrl + a
         timeInput.send_keys(Keys.DELETE)                # 删除键
-        timeInput.send_keys("2018-09-10 00:00:00 至 2018-09-11 00:00:00")     # 输入时间
+        timeInput.send_keys("2018-09-02 00:00:00 至 2018-09-03 00:00:00")     # 输入时间
         #time.sleep(2)
         # print(timeInputId)
         # browserDriver.execute_script('document.getElementById("'+ timeInputId + '").value="2018-07-28 00:00:00 至 2018-08-02 00:00:00"')
@@ -366,14 +366,25 @@ class GetXDR():
         if clearEciButton:                                 # 清空上一次的ECI
             clearEciButton.click()
 
-        for cgi in self.currCgi:
             cgiInput = browserDriver.find_element_by_xpath('//*[@placeholder="【CGI】"]')
             if cgiInput:
-                cgiInput.send_keys(cgi)    # 输入eci
+                cgiInput.send_keys(','.join(self.currCgi))    # 输入eci
             cgiAdd = browserDriver.find_element_by_xpath('//*[contains(@class,"btnCmpAdd")]')
             if cgiAdd:
                 cgiAdd.click()              # 点击添加
                 #time.sleep(0.5)
+
+
+
+
+        # for cgi in self.currCgi:
+        #     cgiInput = browserDriver.find_element_by_xpath('//*[@placeholder="【CGI】"]')
+        #     if cgiInput:
+        #         cgiInput.send_keys(cgi)    # 输入eci
+        #     cgiAdd = browserDriver.find_element_by_xpath('//*[contains(@class,"btnCmpAdd")]')
+        #     if cgiAdd:
+        #         cgiAdd.click()              # 点击添加
+        #         #time.sleep(0.5)
 
 
         cgiOKButton = browserDriver.find_element_by_xpath('//*[contains(@class,"btnCmpOk")]')
