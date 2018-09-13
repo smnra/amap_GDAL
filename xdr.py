@@ -243,26 +243,9 @@ class GetXDR():
             # print(element._parent.title)
             pass
 
-
-        # 选择'  小区 纬度
-        time.sleep(3)
-        postsion = browserDriver.find_element_by_xpath("//span[text()='位置']/../div[1]")
-        if postsion : postsion.click()
-        time.sleep(2)
-        cell = browserDriver.find_element_by_xpath("//span[text()='小区']")
-        if cell:cell.click()
-
-
-        # 选择 小时级
-        time.sleep(2)
-        hour = browserDriver.find_element_by_xpath("//*[text()='小时']")
-        if hour:
-            webdriver.ActionChains(browserDriver).move_to_element(hour).perform()
-            hour.click()
-
-
-
-
+        self.hourClick()
+        self.cellClick()
+        self.userClick()
 
 
         """ 选择HTTP指标大分类"""
@@ -273,16 +256,6 @@ class GetXDR():
             ActionChains(browserDriver).double_click(http).perform()                # 双击
 
 
-
-        # 选择'  小区 纬度
-        time.sleep(2)
-        userClass = browserDriver.find_element_by_xpath("//span[text()='用户']/../div[1]")
-        if userClass : userClass.click()
-        time.sleep(2)
-        user = browserDriver.find_element_by_xpath("//tr[@data-qtip='双击选中所有【用户】类型的维度']/../../following-sibling::table[1]//span[text()='用户']")
-        if user:
-            webdriver.ActionChains(browserDriver).move_to_element(user).perform()
-            user.click()
 
 
         """ 选择TCP指标大分类"""
@@ -300,51 +273,7 @@ class GetXDR():
             traffic.click()                                                            # 点击 流量 元素
             ActionChains(browserDriver).double_click(traffic).perform()  # 双击
 
-        """
-        # 选择 "大页面下载速率(kbps)"  指标
-        kpi1 = browserDriver.find_element_by_xpath("//*[text()='大页面下载速率(kbps)']/..")
-        if kpi1 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi1).perform()       # 鼠标移动到 kpi1 元素上
-            time.sleep(1)
-            kpi1.click()                                                                # 点击kpi1 元素
-        
-        # 选择 "小页面显示时长(ms)"  指标
-        kpi2 = browserDriver.find_element_by_xpath("//*[text()='小页面显示时长(ms)']/..")
-        if kpi2 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi2).perform()
-            time.sleep(1)
-            kpi2.click()
 
-        # 选择 "页面下载时延(内容>=50KB)(ms)"  指标
-        kpi3 = browserDriver.find_element_by_xpath("//*[text()='页面下载时延(内容>=50KB)(ms)']/..")
-        if kpi3 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi3).perform()
-            time.sleep(1)
-            kpi3.click()
-
-        # 选择 "页面下载流量(内容>=50KB)(Byte)"  指标
-        kpi4 = browserDriver.find_element_by_xpath("//*[text()='页面下载流量(内容>=50KB)(Byte)']/..")
-        if kpi4 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi4).perform()
-            time.sleep(1)
-            kpi4.click()
-
-        # 选择 "页面响应平均时长(ms)"  指标
-        kpi5 = browserDriver.find_element_by_xpath("//*[text()='页面响应平均时长(ms)']/..")
-        if kpi5 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi5).perform()
-            time.sleep(1)
-            kpi5.click()
-
-        # 选择 "页面响应总时延(ms)"  指标
-
-        kpi6 = browserDriver.find_element_by_xpath("//*[text()='页面响应总时延(ms)']/..")
-        if kpi6 :
-            webdriver.ActionChains(browserDriver).move_to_element(kpi6).perform()
-            time.sleep(1)
-            kpi6.click()
-
-        """
 
 
 
@@ -359,7 +288,7 @@ class GetXDR():
         timeInputId = timeInput.get_attribute("id")
         timeInput.send_keys(Keys.CONTROL, 'a')          # 全选 ctrl + a
         timeInput.send_keys(Keys.DELETE)                # 删除键
-        timeInput.send_keys("2018-07-28 00:00:00 至 2018-07-29 00:00:00")     # 输入时间
+        timeInput.send_keys("2018-09-10 00:00:00 至 2018-09-11 00:00:00")     # 输入时间
         #time.sleep(2)
         # print(timeInputId)
         # browserDriver.execute_script('document.getElementById("'+ timeInputId + '").value="2018-07-28 00:00:00 至 2018-08-02 00:00:00"')
@@ -368,6 +297,59 @@ class GetXDR():
             okButton.click()        #点击确定按钮
 
         self.clearData(browserDriver)       #隐藏数据界面
+
+    def cellClick(self):
+        # 选择'  小区 纬度
+        try:
+            time.sleep(2)
+            postsion = browserDriver.find_element_by_xpath("//span[text()='位置']/../div[1]")
+            if postsion : postsion.click()
+            time.sleep(2)
+            cell = browserDriver.find_element_by_xpath("//span[text()='小区']")
+            if cell:cell.click()
+            return True
+        except Exception as e:
+            print(e)
+            print("选择小区异常，重试...")
+            self.cellClick()
+
+
+    def hourClick(self):
+        # 选择 小时级
+        try:
+            time.sleep(2)
+            hour = browserDriver.find_element_by_xpath("//*[text()='小时']")
+            if hour:
+                webdriver.ActionChains(browserDriver).move_to_element(hour).perform()
+                hour.click()
+                return True
+        except Exception as e:
+            print(e)
+            print("选择小时级异常，重试...")
+            self.hourClick()
+
+
+    def userClick(self):
+        # 选择'  用户  纬度
+        try:
+            time.sleep(2)
+            userClass = browserDriver.find_element_by_xpath("//span[text()='用户']/../div[1]")
+            if userClass :
+                browserDriver.execute_script("window.scrollBy(0,200)", "")  # 向下滚动200px
+                userClass.click()
+            time.sleep(3)
+            user = browserDriver.find_element_by_xpath("//tr[@data-qtip='双击选中所有【用户】类型的维度']/../../following-sibling::table[1]//span[text()='用户']")
+            if user:
+                webdriver.ActionChains(browserDriver).move_to_element(user).perform()
+                user.click()
+                return True
+
+        except Exception as e:
+            print(e)
+            print("选择用户级异常，重试...")
+            self.userClick()
+
+
 
 
 
@@ -541,7 +523,7 @@ if __name__=="__main__":
             except Exception as e:
                 print(e)
 
-        if len(cellList) % 20 == 0:
+        if len(cellList)%20==0 or i+1==len(xdr.cgiList[CurrCgiIndex:-1]):
             # 10 个cgi 一组 也就是说每次取 10 个小区
             try:
                 xdr.queryCell(cellList,browserDriver)
@@ -550,5 +532,5 @@ if __name__=="__main__":
             finally:
                 cellList.clear()    # 清空 cellList []
 
-
+    print('benlun yi wan')
     browserDriver.quit()
