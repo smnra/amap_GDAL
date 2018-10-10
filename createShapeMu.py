@@ -3,14 +3,16 @@
 
 """ 
 @author:SMnRa
-@file: shapeMake.py 
-@time: 2018/08/{DAY} 
+@file: shapeMake.py
+@time: 2018/08/{DAY}
 描述: 从csv文件读取表格 并使用GDAL库创建 多边形 shape文件
 
 """
 import os,sys
 from createShapeFile import *
 from createNewDir import *
+import shapefile
+
 class CsvData():
     def __init__(self,csvFileName):
         self.csvFileName = csvFileName
@@ -29,32 +31,14 @@ class CsvData():
             print(self.csvFileName, "File Not Found,Please Check!")
             sys.exit()
 
-    def newMapFile(self,i):
-        newMap = CreateMapFeature(self.path)
-        # 初始化类
-        fieldList = [(title[:8], (4, 254)) for title in self.title]
-        # (("index", (4, 254)), ("name", (4, 254)), ("lon", 2), ("lat", 2))
-        # 生成 字段列表
-        dataSource = newMap.newFile('pylgon' + str(i) +'.shp')
-        # 创建shape文件
-        newLayer = newMap.createLayer(dataSource, fieldList)
-        # 创建 图层Layer 对象
-
-
 
     def createPylgon(self,datas):
         """ 把行字符串列表整理为 可用的数据格式 返回"""
         self.title = datas[0].replace('"','').strip().split(',')
 
-        newMap = CreateMapFeature(self.path)
-        # 初始化类
-        fieldList = [(title[:8], (4, 254)) for title in self.title]
-        # (("index", (4, 254)), ("name", (4, 254)), ("lon", 2), ("lat", 2))
-        # 生成 字段列表
-        dataSource = newMap.newFile('pylgon.shp')
-        # 创建shape文件
-        newLayer = newMap.createLayer(dataSource, fieldList)
-        # 创建 图层Layer 对象
+        w = shapefile.Writer(shapefile.POLYGON)
+        for title in self.title:
+            w.field(title, 'C', '254')
 
 
         content = []
@@ -67,27 +51,25 @@ class CsvData():
                 Coordinate = [[float(coor) for coor in coordi.split(' ')] for coordi in strCoordinate]
                 # 先用";" 分割, 再发分割的每一个元素转化为浮点型
 
-                newMap.createPolygon(newLayer, [Coordinate], info + [str(Coordinate)])
+                w.poly(parts=[[Coordinate]], shapeType=shapefile.POLYGON)
+                w.record(info + [str(Coordinate)])
+
+
                 # 创建 shape对象
-                if i%1000000==0:
-                    newMap = CreateMapFeature(self.path)
-                    # 初始化类
-                    fieldList = [(title[:8], (4, 254)) for title in self.title]
-                    # (("index", (4, 254)), ("name", (4, 254)), ("lon", 2), ("lat", 2))
-                    # 生成 字段列表
-                    dataSource = newMap.newFile('pylgon' + str(i) + '.shp')
-                    # 创建shape文件
-                    newLayer = newMap.createLayer(dataSource, fieldList)
-                    # 创建 图层Layer 对象
-
+                if i%10000==0:
                     print(i)
-
                 one.clear()
                 info.clear()
+        w.save(r'./tab')
+
+
+
+
+
 
 
 if __name__=="__main__":
-    csvData = CsvData(r'./grid1009_road.csv')
+    csvData = CsvData(r'./grid.csv')
     # 初始化类
     datas = csvData.csvFileRead()
     # 读取csv文件 并返回 行数据列表

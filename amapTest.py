@@ -52,7 +52,8 @@ class GetRectPoi():
         用于搜索 矩形框内的 POI 的 url : 'http://restapi.amap.com/v3/place/polygon?polygon=108.889573,34.269261;108.924163,34.250959&key=dc44a8ec8db3f9ac82344f9aa536e678&extensions=all&offset=10&page=1'
         '''
 
-        self.searchUrlParams = {  'key': 'dc44a8ec8db3f9ac82344f9aa536e678',
+        self.searchUrlParams = {'types': '141200|141201|141202|141203|141204|141205|141206|141207',
+                                'key': 'dc44a8ec8db3f9ac82344f9aa536e678',
                                   'polygon': '',                   #self.rectToPolygonStr(rect),
                                   'extensions': 'all',
                                   'offset': '20',
@@ -578,7 +579,8 @@ if __name__ == '__main__' :
     #rect = [[108.897814, 34.2752], [108.9256255, 34.2661305]]       #注意 此处的经纬度 为 GPS经纬度经过偏置后的  高德地图 经纬度
     rect = [[108.783916,34.443428],[109.157794,34.095302]]                  # 大西安
     # rect =[[108.924463,34.269687], [108.946908,34.259437]]                # 测试区域
-    typecodes = ["060000","061000","070000","071000","072000","080000","090000","100000","110000","120000","130000","140000","141000","150000","151000","160000","170000","180000","190000","200000","220000","970000","990000","991000"]
+    typecodes = ['141200','141201','141202','141203','141204','141205','141206','141207']
+    # 此处为学校
     for typecode in typecodes:
         noProxy = requests.session()
         test = GetRectPoi(rect,typecode)         #初始化类
