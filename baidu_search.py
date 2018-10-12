@@ -24,13 +24,28 @@ from fake_useragent import UserAgent
 #要想调用键盘按键操作需要引入keys包
 from selenium.webdriver.common.keys import Keys
 
+'''
+用 url:  'https://map.baidu.com/su?wd=%E8%9E%8D%E4%BE%A8%20&cid=233&type=0&newmap=1&b=(12121496.865%2C4038346.77%3B12121862.365%2C4038655.77)&t=1539339239819&pc_ver=2'
+搜索出可能的 名字 和 uuid
+
+'https://map.baidu.com/?newmap=1&reqflag=pcmap&biz=1&from=webmap&da_par=direct&pcevaname=pc4.1&qt=ext&c=233&ext_ver=new&tn=B_NORMAL_MAP&nn=0&ie=utf-8&l=17&uid=3c753948c9a2427235b06c64'
+然后用这个url查找 是否存在 pylgon
+
+'''
+
+
 
 class GetBaiduMap():
     def __init__(self,fileName):
         self.url = 'https://map.baidu.com/'
-        self.geoUrl = 'https://map.baidu.com/?newmap=1&reqflag=pcmap&biz=1&from=webmap&da_par=direct&pcevaname=pc4.1&qt=ext&uid=d67ad39faf3a5d6929201a71&c=233&ext_ver=new&tn=B_NORMAL_MAP&nn=0&u_loc=12143388,4042453&ie=utf-8&l=12&b=(12111265.151111115,4021309.035000004;12136697.307777777,4052367.7749999966)&t=1539050402052'
+        # 边界查询
+        self.geoUrl = 'https://map.baidu.com/?newmap=1&reqflag=pcmap&biz=1&from=webmap&da_par=direct&pcevaname=pc4.1&qt=ext&c=233&ext_ver=new&tn=B_NORMAL_MAP&nn=0&ie=utf-8&l=17&uid=3c753948c9a2427235b06c64'
+        # poi查找
         self.searchUrl = 'http://api.map.baidu.com/?qt=s&c=131&rn=100&ie=utf-8&oue=1&res=api&wd='
         ''' https://map.baidu.com/?qt=ext&uid=da961f7ddadb6962deee8bb8&ext_ver=new&&nn=0&l=18 '''
+
+        # 搜索 名字 搜索 id
+        'https://map.baidu.com/su?wd=%E8%9E%8D%E4%BE%A8%20&cid=233&type=0&newmap=1&b=(12121496.865%2C4038346.77%3B12121862.365%2C4038655.77)&t=1539339239819&pc_ver=2'
         # 查询边界的url
         self.fileName = fileName
         self.pois = []  # 保存 poi数据
@@ -255,8 +270,8 @@ class GetBaiduMap():
                                 gps = self.miToGPS(browserDriver, coord[0], coord[1])
                                 pylgon.append([str(gps['lon']),str(gps['lat'])])
                             pylgon = ";".join([' '.join(node) for node in pylgon])
-                            if not pylgon: pylgon=''
                             print(pylgon)
+                    if not pylgon: pylgon=''
 
                 except Exception as e: print(e)
 
@@ -286,16 +301,12 @@ class GetBaiduMap():
                         x=str(x)
                         y=str(y)
 
-                    pylgon = str(pylgon)
                     poiInfo.append(",".join(
                         [csvName, name, uid, primary_uid, alias, addr,
                          address_norm, area, area_name, catalogID, di_tag,
                          std_tag, std_tag_id, tel, x, y, lon, lat, pylgon + '\n'])
                     )
-                    print(",".join(
-                        [csvName, name, uid, primary_uid, alias, addr,
-                         address_norm, area, area_name, catalogID, di_tag,
-                         std_tag, std_tag_id, tel, x, y, lon, lat]))
+
 
                 except Exception as e: print(e)
 
