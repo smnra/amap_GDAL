@@ -649,10 +649,10 @@ class GetBaiduMap():
         return 0
 
     def main(self):
-        # browserDriver = self.seleniumChromeInit()
+        browserDriver = self.seleniumChromeInit()
         # 初始化selenium Chrome 对象
-        # searchBoxId = 'sole-input'
-        # browserDriver = self.openAmap(browserDriver,searchBoxId)
+        searchBoxId = 'sole-input'
+        browserDriver = self.openAmap(browserDriver,searchBoxId)
         # 打开amap首页
 
         # 如果不存在 poiFile 则建立并写入表头
@@ -666,7 +666,7 @@ class GetBaiduMap():
         curr = self.readCurr()
 
         for name in self.nameList[curr:-1]:
-            # self.searchPoi(browserDriver, name)
+            self.searchPoi(browserDriver, name)
             self.searchBoxGetPoiInfo(name)
             # self.nameToGeo(browserDriver, name)
             print(name)

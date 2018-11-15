@@ -87,7 +87,7 @@ class CsvData():
 
 
 if __name__=="__main__":
-    csvData = CsvData(r'./mi10.csv')
+    csvData = CsvData(r'./aoi.csv')
     # 初始化类
     datas = csvData.csvFileRead()
     # 读取csv文件 并返回 行数据列表
