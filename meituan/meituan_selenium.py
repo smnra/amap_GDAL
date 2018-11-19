@@ -65,10 +65,10 @@ class GetMeituan():
         # poi 相信信息的列表
         self.PoiInfos = []
 
-        # 保存的 csv文件 路径 和 文件名称
-        self.csvFile = createNewDir.createDir(r'./meituan/') + self.cityAcronym + '_meituan.csv'
-        # 保存的 采集进度的 文件名
-        self.currFile = createNewDir.createDir(r'./meituan/') + self.cityAcronym + '_meituan.dat'
+        # # 保存的 csv文件 路径 和 文件名称
+        # self.csvFile = createNewDir.createDir(r'../meituan') + self.cityAcronym + '.csv'
+        # # 保存的 采集进度的 文件名
+        # self.currFile = createNewDir.createDir(r'../meituan') + self.cityAcronym + '.dat'
 
         # 坐标系转换模块
         gps = ct.GPS()
@@ -156,9 +156,9 @@ class GetMeituan():
                 self.city = city
                 self.cityAcronym = city.get("acronym", "")
                 # 保存的 csv文件 路径 和 文件名称
-                self.csvFile = createNewDir.createDir(r'./meituan/') + self.cityAcronym + '_meituan.csv'
+                self.csvFile = createNewDir.createDir('..\\meituan\\') + '\\' + self.cityAcronym + '_meituan.csv'
                 # 保存的 采集进度的 文件名
-                self.currFile =  createNewDir.createDir(r'./meituan/') + self.cityAcronym + '_meituan.dat'
+                self.currFile = createNewDir.createDir('..\\meituan\\') + '\\' + self.cityAcronym + '_meituan.dat'
                 return city
         return ""
 
@@ -327,12 +327,13 @@ class GetMeituan():
                     print(u"对不起，没有符合条件的商家")
                     continue
 
-            # a 标签
-            aTags = self.browserDriver.find_elements_by_xpath("//ul[@class='list-ul']/li/div[@class='info']/a")
 
             # 最后一页标志
             isLastPage = False
             while not isLastPage:
+                # a 标签
+                aTags = self.browserDriver.find_elements_by_xpath("//ul[@class='list-ul']/li/div[@class='info']/a")
+
                 #  遍历每一个 poi
                 poiInfo = []
                 poiInfos = []
@@ -372,6 +373,7 @@ class GetMeituan():
                 else:
                     isLastPage = False
                     isLastPageTag.click()
+                    print("Next page Click !!!")
                     self.queryLoadCompalte("//ul[@class='list-ul']")
 
 
@@ -414,7 +416,8 @@ if __name__ == "__main__":
     meituan.getCateCode()
 
     # 获取子区域id
-    meituan.getAreaCode(u"宝鸡",u"金台区")
+    meituan.getAreaCode(u"宝鸡",u"陈仓区")
 
+    # 获取poi
     meituan.getCityPois()
     print("complate!")
