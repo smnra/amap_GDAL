@@ -558,7 +558,7 @@ class GetBaiduMap():
         #     print(browserDriver.title)
         # 返回 请求的返回数据
         poiInfo = []
-        url = self.searchUrl + buildName
+        url = self.searchUrl + buildName.replace(","," ")
         result = self.newTabGet(browserDriver, url)
         if isinstance(result,dict):
             # result 字典存在 key  'content' 并且 result['content'] 是列表
@@ -583,13 +583,13 @@ class GetBaiduMap():
                                 gps = self.miToGPS(coord[0], coord[1])
                                 pylgon.append([str(gps['lon']),str(gps['lat'])])
                             pylgon = ";".join([' '.join(node) for node in pylgon])
-                            print(pylgon)
+                            # print(pylgon)
                     if not pylgon: pylgon=''
 
                 except Exception as e: print(e)
 
                 try:
-                    csvName = buildName
+                    csvName = buildName.split(",")[1]
                     name = self.stripStr(poi.get('name',''))
                     uid =  self.stripStr(poi.get('uid', '')) or ''
                     alias =  self.stripStr(poi.get('alias', ''))
@@ -661,8 +661,6 @@ class GetBaiduMap():
                 # f.writelines("csvName,name,uid,primary_uid,alias,addr,address_norm,area,area_name,catalogID,di_tag,std_tag,std_tag_id,tel,x,y,lon,lat,pylgon\n")
                 f.writelines("csvName,name,uid,primary_uid,alias,addr,address_norm,area,area_name,catalogID,di_tag,std_tag,std_tag_id,tel,x,y,lon,lat,geo\n")
 
-
-
         curr = self.readCurr()
 
         for name in self.nameList[curr:-1]:
@@ -680,8 +678,6 @@ class GetBaiduMap():
 if __name__=="__main__":
     baiduMap = GetBaiduMap("./build.csv")
     baiduMap.main()
-
-
     print("complate!")
 
 

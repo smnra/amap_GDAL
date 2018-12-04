@@ -61,8 +61,8 @@ def decodePoi(C):
     A = int(B[:I], digi)
     F = int(B[I+1:], digi)
     L = (A + F - int(G)) / 2
-    K = float(F - L) / 100000
-    L = float(L) / 100000
+    K = float(F - L) / 10000000
+    L = float(L) / 10000000
     return [K,L]
 
 if __name__ == '__main__':
