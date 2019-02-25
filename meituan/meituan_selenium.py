@@ -180,7 +180,7 @@ class GetMeituan():
         for bTag in bTags:
             bName = bTag.text
 
-            if bName == areaName:  # 过滤 一级行政区
+            if bName not in areaName:  # 过滤 一级行政区
                 # 鼠标移动到 b 标签上
                 webdriver.ActionChains(self.browserDriver).move_to_element(bTag).perform()
                 areaTags = self.browserDriver.find_elements_by_xpath("//div[@class='popover-content']/ul//li//a")
@@ -209,7 +209,7 @@ class GetMeituan():
         # 从文件读取采集进度
         if not os.path.exists(self.csvFile):
             with open(self.csvFile, mode='w', encoding='utf-8', errors='ignore') as f:
-                f.write("poiCity, poiName, poiId, lon, lat, poiUrl, poiSource, poiComment, poiPrice, poiAddress" + '\n')
+                f.write("poiCity, poiName, poiId, olon, olat, lon, lat, url, poiUrl, poiSource, poiComment, poiPrice, poiAddress" + '\n')
 
         if not os.path.exists(self.currFile):
             return 0
@@ -345,17 +345,17 @@ class GetMeituan():
 
                     poiComment = a.find_elements_by_xpath("..//div[@class='source clear']/p")[0].text
                     poiSource, poiComment = poiComment.split(u"分")
-                    if poiComment is '': poiComment = '0条评论'
+                    if poiComment is '': poiComment = u'0条评论'
 
                     poiAddress = a.find_elements_by_xpath("..//p[@class='desc']")[0].text
                     poiAddress, poiPrice = poiAddress.split('\n')
                     poiAddress.replace(",","")
 
-                    lon,lat = self.getCoord(poiUrl)
-                    coordination = self.coordTrans(lat,lon)  # 坐标系转换
+                    olon,olat = self.getCoord(poiUrl)
+                    coordination = self.coordTrans(olat,olon)  # 坐标系转换
                     lon,lat = [str(coordination.get("lon","")),str(coordination.get("lat",""))]
 
-                    poiInfo = [poiCity, poiName, poiId, lon, lat, poiUrl, poiSource, poiComment, poiPrice, poiAddress+'\n']
+                    poiInfo = [poiCity, poiName, poiId, str(olon), str(olat), lon, lat, url,poiUrl, poiSource, poiComment, poiPrice, poiAddress+'\n']
                     print(poiInfo)
                     poiInfos.append(",".join(poiInfo))
                     # self.poiInfos.append(list(poiInfo))
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     meituan.getCateCode()
 
     # 获取子区域id
-    meituan.getAreaCode(u"宝鸡",u"陈仓区")
+    meituan.getAreaCode(u"咸阳",[u"陈s区"])
 
     # 获取poi
     meituan.getCityPois()
