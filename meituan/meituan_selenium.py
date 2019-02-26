@@ -15,7 +15,7 @@
 @author:Administrator 
 @file: amap_selenium_chrome.py 
 @time: 2018/10/07
-描述: selenium  高德地图 chrome  采集小区边界
+描述: selenium  MEITUAN chrome  采集小区边界
 
 """
 
@@ -186,10 +186,11 @@ class GetMeituan():
                 areaTags = self.browserDriver.find_elements_by_xpath("//div[@class='popover-content']/ul//li//a")
                 for a in areaTags:
                     name = a.text
-                    if name == u"全部": name = bName
-                    id = a.get_attribute("href").split("/")[-2].replace("b", "")
-                    self.areaList.append({"id": id, "name": name})
-                    print({"id": id, "name": name})
+                    if name == u"全部":
+                        name = bName
+                        id = a.get_attribute("href").split("/")[-2].replace("b", "")
+                        self.areaList.append({"id": id, "name": name})
+                        print({"id": id, "name": name})
 
 
     def createCityUrls(self):
@@ -416,8 +417,9 @@ if __name__ == "__main__":
     meituan.getCateCode()
 
     # 获取子区域id
-    meituan.getAreaCode(u"咸阳",[u"陈s区"])
+    meituan.getAreaCode(u"铜川",[u"陈s区"])
 
     # 获取poi
     meituan.getCityPois()
+
     print("complate!")
