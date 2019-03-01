@@ -110,6 +110,8 @@ class GetMeituan():
         # 字符串 反序列化
         if self.isJsonStr(text):
             return json.loads(text)
+        else:
+            return None
 
     def getCtyCode(self, provinceName):
         # 打开amap 首页 等待网页加载完成
@@ -417,7 +419,7 @@ if __name__ == "__main__":
     meituan.getCateCode()
 
     # 获取子区域id
-    meituan.getAreaCode(u"铜川",[u"陈s区"])
+    meituan.getAreaCode(u"西安",[u"陈s区"])
 
     # 获取poi
     meituan.getCityPois()
