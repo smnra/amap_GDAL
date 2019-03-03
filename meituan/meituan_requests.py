@@ -85,19 +85,18 @@ class GetMeituan():
             '安康市': 'https://ankang.meituan.com/s/'
         }
 
-        self.header = {
+        self.headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "zh-CN,zh;q=0.9",
-            "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "Cookie": "__mta=108425917.1551143452201.1551143452201.1551316904069.2; iuuid=EE5893B5D2C219A684B1BA25271AB6F834A1DC9634EADB340BFDB6BDA984E46F; _lxsdk_cuid=1653bf57b9e42-064eff1fa336df-252b1971-100200-1653bf57b9f61; _lxsdk=EE5893B5D2C219A684B1BA25271AB6F834A1DC9634EADB340BFDB6BDA984E46F; _hc.v=7ef28d0d-ed51-ad2f-1b7f-662935ef4790.1541148357; webp=1; cityname=%E8%A5%BF%E5%AE%89; latlng=34.227458,108.882816,1550806592400; __utmz=74597006.1550806593.4.4.utmcsr=meishi.meituan.com|utmccn=(referral)|utmcmd=referral|utmcct=/i/poi/; i_extend=C_b1Gimthomepagecategory11H__a; _lx_utm=utm_source%3Dmeishi.meituan.com%26utm_medium%3Dreferral%26utm_content%3D%252Fi%252Fpoi%252F; __mta=108425917.1551143452201.1551143452201.1551143452201.1; uuid=95fdf18f9d77473398b1.1551316862.1.0.0; ci=358; rvct=358%2C356%2C359%2C819%2C772%2C357%2C355%2C360%2C352%2C354%2C353",
+            "Cookie": "__mta=20812423.1551143861269.1551447027375.1551500101694.5; iuuid=EE5893B5D2C219A684B1BA25271AB6F834A1DC9634EADB340BFDB6BDA984E46F; _lxsdk_cuid=1653bf57b9e42-064eff1fa336df-252b1971-100200-1653bf57b9f61; _lxsdk=EE5893B5D2C219A684B1BA25271AB6F834A1DC9634EADB340BFDB6BDA984E46F; _hc.v=7ef28d0d-ed51-ad2f-1b7f-662935ef4790.1541148357; webp=1; cityname=%E6%B8%AD%E5%8D%97; i_extend=C_b1Gimthomepagecategory11H__a100005__b1; __utmz=74597006.1551318637.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); uuid=a75c37b0cb0b4e8d87a5.1551445379.1.0.0; ci=354; rvct=354%2C358%2C356%2C355%2C1155%2C359%2C819%2C772%2C357%2C360%2C352; __mta=20812423.1551143861269.1551143876409.1551500085679.3",
             "DNT": "1",
-            "Host": "yl.meituan.com",
-            "Pragma": "no-cache",
-            "Referer": "https://yl.meituan.com/s/%E4%BA%8C%E9%A9%AC%E5%B8%88%E5%82%85/",
+            "Host": "xianyang.meituan.com",
+            "Referer": "https://xianyang.meituan.com/s/%E5%95%8A",
             "Upgrade-Insecure-Requests": "1",
-            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36", }
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36"
+                    }
 
     def seleniumChromeInit(self):
         # 模拟创建一个浏览器对象，然后可以通过对象去操作浏览器
@@ -135,17 +134,18 @@ class GetMeituan():
         if self.isJsonStr(text):
             return json.loads(text)
 
-    def readCurr(self):
-        # 从文件读取采集进度
-        if not os.path.exists(r'./searchPoiNogps.csv'):
-            with open(r'./searchPoiNogps.csv', mode='w', encoding='utf-8', errors='ignore') as f:
-                f.write(
-                    "searchCity,searchName, searchID, " + "poiCity, poiName, poiId, poiType, poiArea, url, poiUrl, poiSource, poiComment, poiPrice, poiAddress" + '\n')
 
-        if not os.path.exists(r'./searchPoi.dat'):
+    def readCurr(self, saveFile, currFile):
+        # 从文件读取采集进度
+        if not os.path.exists(saveFile):
+            with open(saveFile, mode='w', encoding='utf-8', errors='ignore') as f:
+                f.write(
+                    "searchCity,searchName, searchID, " + "poiCity, poiName, poiId, poiType, poiArea, olon, olat, lon, lat, url, poiUrl, poiSource, poiComment, poiPrice, poiAddress" + '\n')
+
+        if not os.path.exists(currFile):
             return 0
 
-        with open(r'./searchPoi.dat', mode='r', encoding='utf-8', errors='ignore') as f:
+        with open(currFile, mode='r', encoding='utf-8', errors='ignore') as f:
             currUrl = f.readline()
 
         if currUrl in self.poiSearch:
@@ -154,6 +154,7 @@ class GetMeituan():
             currUrlIndex = 0
 
         return currUrlIndex
+
 
     def queryLoadCompalte(self, xpath):
         # 查询是元素否完成 返回 True
@@ -191,6 +192,9 @@ class GetMeituan():
     def getSearchUrl(self, city, name):
         url = self.citySearchUrl[city] + name
         return url
+
+
+
 
     def getSearchPois(self):
         #
@@ -305,35 +309,61 @@ class GetMeituan():
                         print("Next page Click !!!")
                         self.queryLoadCompalte("//*[@class='common-list']")
 
-    def requestsSearch(self):
-        self.poiSearch = self.readUrlList(r'./poiSearchName.txt')
-        currUrlIndex = self.readCurr()  # 读取进度
+
+    def requestsSearchPoi(self, urlFile, saveFile, currFile):
+        # 获取脚本中的JSON数据
+        poiSearch = self.readUrlList(urlFile)
+        currUrlIndex = self.readCurr(saveFile, currFile)  # 读取进度
 
         # 遍历每一个 需要采集的 url
-        for searchName in self.poiSearch[currUrlIndex:-1]:
+        for searchName in poiSearch[currUrlIndex:-1]:
+            poiInfos = []
             searchList = searchName.replace("\n", "").split(",")
-            url = self.getSearchUrl(searchList[0], searchList[1])
+            url = self.getSearchUrl(searchList[0], searchList[1].replace("/", "_"))
             print(url)
-            self.oprnUrl(url)
-        result = requests.get(url, timeout=10, headers=self.header)
-        print(result.text)
+            self.headers["User-Agent"] = self.userAnent
+            result = requests.get(url=url, headers=self.headers)
+            if result.status_code == 200:
+                searchObj = re.search(r'.*<script>window.AppData = (.*?);</script>.*', str(result.content, 'utf-8'),
+                                      re.M | re.I)
+                if searchObj:
+                    pois = self.toJson(searchObj.group(1))
+                else:
+                    continue
+
+            if pois:
+                pois = pois.get("data", "").get("searchResult", "")
+                for poi in pois:
+                    poiCity, poiName, poiId, poiType, poiArea, olon, olat, lon, lat, poiUrl, poiSource, poiComment, poiPrice, poiAddress = "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+                    poiCity = poi.get("city", "") or \
+                              self.browserDriver.find_elements_by_xpath("//span[@class='current-city']")[0].text
+                    poiName = poi.get("title", "")
+                    poiId = poi.get("id", "")
+                    poiType = poi.get("showType", "")
+                    poiArea = poi.get("areaname", "")
+                    olon = poi.get("longitude", "")
+                    olat = poi.get("latitude", "")
+                    coordination = self.coordTrans(float(olat), float(olon))  # 坐标系转换
+                    lon, lat = [str(coordination.get("lon", "")), str(coordination.get("lat", ""))]
+                    poiUrl = "https://www.meituan.com/meishi/" + str(poiId)
+                    poiSource = poi.get("avgscore", "")
+                    poiComment = poi.get("comments", "")
+                    poiPrice = poi.get("avgprice", "")
+                    poiAddress = poi.get("address", "")
+
+                    poiInfo = searchList + [poiCity, poiName, str(poiId), poiType, poiArea, str(olon), str(olat),
+                                            lon, lat, url, poiUrl, str(poiSource), str(poiComment), str(poiPrice),
+                                            poiAddress + '\n']
+
+                    poiInfos.append(",".join(poiInfo))
 
 
 if __name__ == "__main__":
-    meituan = GetMeituan()
-    # 初始化selenium Chrome 对象
-    # browserDriver = meituan.seleniumChromeInit()
+    def main(index):
+        print("index:",index)
+        meituan = GetMeituan()
+        meituan.requestsSearchPoi(r'./无标题-'+ str(index) + '.txt',
+                                r'./searchPoi_'+ str(index) + '.csv',
+                                r'./searchPoi_'+ str(index) + '.dat')
 
-    # # 获取所有城市id
-    # meituan.getCtyCode(u"陕西")
-    #
-    # # 获取分类ID
-    # meituan.getCateCode()
-    #
-    # # 获取子区域id
-    # meituan.getAreaCode(u"咸阳",[u"陈s区"])
-
-    # 获取poi
-    meituan.requestsSearch()
-    # meituan.getSearchPois()
-    print("complate!")
+    main(9)

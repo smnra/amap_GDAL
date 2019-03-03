@@ -1,21 +1,21 @@
 #!usr/bin/env python  
 # -*- coding:utf-8 _*-
 
-""" 
-@Author: SMnRa 
+"""
+@Author: SMnRa
 @Email: smnra@163.com
 @Project: amap_GDAL
-@File: searchPoi.py 
+@File: searchPoi.py
 @Time: 2019/02/25 13:39
 
-功能描述: 
+功能描述:
 
 
 
 
 """
 
-import requests, re, time, os, random, json
+import requests, re, time, os, random, json,sys
 from bs4 import BeautifulSoup
 # 导入webdriver
 import createNewDir
@@ -32,6 +32,7 @@ from itertools import combinations
 import coordinateTranslate as ct
 from bs4 import BeautifulSoup
 import random
+
 
 class GetMeituan():
     def __init__(self):
@@ -86,16 +87,19 @@ class GetMeituan():
             '安康市': 'https://ankang.meituan.com/s/'
         }
 
-        self.headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-                        "Accept-Encoding": "gzip, deflate, br",
-                        "Accept-Language": "zh-CN,zh;q=0.9",
-                        "Cache-Control": "max-age=0",
-                        "Connection": "keep-alive",
-                        # "Cookie": "__mta=146243211.1551452178822.1551452178822.1551452270619.2; uuid=63ead3fae1b34c05957f.1551452154.1.0.0; ci=359; rvct=359; _lxsdk_cuid=16939c187b4c8-0f2c4d416da6c-42017773-100200-16939c187b460; _lxsdk_s=16939c187b6-557-aef-f46%7C%7C11",
-                        "Host": "www.meituan.com",
-                        "Upgrade-Insecure-Requests": "1",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"                        }
+        self.headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "Cache-Control": "max-age=0",
+            "Connection": "keep-alive",
+            # "Cookie": "__mta=146243211.1551452178822.1551452178822.1551452270619.2; uuid=63ead3fae1b34c05957f.1551452154.1.0.0; ci=359; rvct=359; _lxsdk_cuid=16939c187b4c8-0f2c4d416da6c-42017773-100200-16939c187b460; _lxsdk_s=16939c187b6-557-aef-f46%7C%7C11",
+            "Host": "www.meituan.com",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36 Avast/65.0.411.162"}
 
+        self.diguiCount = 0
+        # 递归计数器
 
     def seleniumChromeInit(self):
         # 模拟创建一个浏览器对象，然后可以通过对象去操作浏览器
@@ -112,7 +116,7 @@ class GetMeituan():
         # 更换头部
         options.add_argument(self.userAnent)
         # options.add_argument("--no-sandbox")
-        # options.add_argument('--headless')
+        options.add_argument('--headless')
         browserDriver = webdriver.Chrome(executable_path=driverPath, chrome_options=options)
         # browserDriver.maximize_window()     # 设置最大化
         # browserDriver.set_window_size(1366,900)
@@ -132,7 +136,7 @@ class GetMeituan():
         if self.isJsonStr(text):
             return json.loads(text)
 
-    def readCurr(self,saveFile,currFile):
+    def readCurr(self, saveFile, currFile):
         # 从文件读取采集进度
         if not os.path.exists(saveFile):
             with open(saveFile, mode='w', encoding='utf-8', errors='ignore') as f:
@@ -154,12 +158,16 @@ class GetMeituan():
 
     def queryLoadCompalte(self, xpath):
         # 查询是元素否完成 返回 True
+        if self.diguiCount >= 20:
+            self.browserDriver.get(self.url)
+            self.diguiCount = 0
         resultHtml = None
         try:
             resultHtml = self.browserDriver.find_element_by_xpath(xpath)
         except Exception as  e:
-            print(e)
+            print(self.diguiCount,e)
             time.sleep(0.3)
+            self.diguiCount= self.diguiCount+1
 
         if resultHtml:
             return resultHtml
@@ -301,21 +309,32 @@ class GetMeituan():
                         print("Next page Click !!!")
                         self.queryLoadCompalte("//*[@class='common-list']")
 
+    def getSearchPois_2(self, urlFile, saveFile, currFile):
 
+        # 初始化selenium Chrome 对象
+        browserDriver = self.seleniumChromeInit()
 
-
-    def getSearchPois_2(self,urlFile,saveFile,currFile):
-        # 获取脚本中的JSON数据
         self.poiSearch = self.readUrlList(urlFile)
-        currUrlIndex = self.readCurr(saveFile,currFile)  # 读取进度
-        i=0
-        self.browserDriver.get('https://xa.meituan.com/')
+        currUrlIndex = self.readCurr(saveFile, currFile)  # 读取进度
+        i = 0
+        self.browserDriver.get('https://www.baidu.com')
         # 遍历每一个 需要采集的 url
         for searchName in self.poiSearch[currUrlIndex:-1]:
+
+            if i >= 50:
+                # 50次重新打开 chrome
+                self.browserDriver.quit()
+                browserDriver = self.seleniumChromeInit()
+                # self.browserDriver = webdriver.Chrome(executable_path=driverPath, chrome_options=options)
+                i = 0
+            i+=1
+
+
             poiInfos = []
             searchList = searchName.replace("\n", "").split(",")
-            url = self.getSearchUrl(searchList[0], searchList[1].replace("/","_"))
-            print(url)
+            url = self.getSearchUrl(searchList[0], searchList[1].replace("/", "_").replace("%", "_"))
+            self.url = url
+            print(self.index,url)
             self.oprnUrl(url)
 
             # 等待   "//div[@class='common-list']" 元素载入完成
@@ -342,7 +361,7 @@ class GetMeituan():
                     if pois:
                         pois = pois.get("data", "").get("searchResult", "")
                         for poi in pois:
-                            poiCity, poiName, poiId, poiType, poiArea, olon, olat, lon, lat,poiUrl, poiSource, poiComment, poiPrice, poiAddress = "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+                            poiCity, poiName, poiId, poiType, poiArea, olon, olat, lon, lat, poiUrl, poiSource, poiComment, poiPrice, poiAddress = "", "", "", "", "", "", "", "", "", "", "", "", "", ""
                             poiCity = poi.get("city", "") or \
                                       self.browserDriver.find_elements_by_xpath("//span[@class='current-city']")[0].text
                             poiName = poi.get("title", "")
@@ -359,13 +378,15 @@ class GetMeituan():
                             poiPrice = poi.get("avgprice", "")
                             poiAddress = poi.get("address", "")
 
-                            poiInfo = searchList + [poiCity, poiName, str(poiId), poiType, poiArea, str(olon), str(olat),
-                                                    lon, lat, url, poiUrl, str(poiSource), str(poiComment), str(poiPrice),
+                            poiInfo = searchList + [poiCity, poiName, str(poiId), poiType, poiArea, str(olon),
+                                                    str(olat),
+                                                    lon, lat, url, poiUrl, str(poiSource), str(poiComment),
+                                                    str(poiPrice),
                                                     poiAddress + '\n']
 
                             poiInfos.append(",".join(poiInfo))
 
-                print(poiInfos)
+                print(self.index,poiInfos)
 
                 with open(saveFile, mode='a+', encoding='utf-8', errors='ignore') as f:  # 将poi信息写入文件
                     f.writelines(poiInfos)
@@ -386,8 +407,7 @@ class GetMeituan():
                         print("Next page Click !!!")
                         self.queryLoadCompalte("//*[@class='common-list']")
 
-
-    def requestsSearchPoi(self,urlFile,saveFile,currFile):
+    def requestsSearchPoi(self, urlFile, saveFile, currFile):
         # 获取脚本中的JSON数据
         poiSearch = self.readUrlList(urlFile)
         currUrlIndex = self.readCurr(saveFile, currFile)  # 读取进度
@@ -399,7 +419,7 @@ class GetMeituan():
             url = self.getSearchUrl(searchList[0], searchList[1].replace("/", "_"))
             print(url)
             self.headers["User-Agent"] = self.userAnent
-            result = requests.get(url=url,headers=self.headers)
+            result = requests.get(url=url, headers=self.headers)
             if result.status_code == 200:
                 searchObj = re.search(r'.*<script>window.AppData = (.*?);</script>.*', str(result.content, 'utf-8'),
                                       re.M | re.I)
@@ -407,7 +427,6 @@ class GetMeituan():
                     pois = self.toJson(searchObj.group(1))
                 else:
                     continue
-
 
             if pois:
                 pois = pois.get("data", "").get("searchResult", "")
@@ -436,16 +455,16 @@ class GetMeituan():
                     poiInfos.append(",".join(poiInfo))
 
 
-
 if __name__ == "__main__":
-
     def main(index):
         meituan = GetMeituan()
+        meituan.index = index
         # 初始化selenium Chrome 对象
-        browserDriver = meituan.seleniumChromeInit()
-        meituan.getSearchPois_2(r'./无标题-'+ str(index) + '.txt',
-                                r'./searchPoi_'+ str(index) + '.csv',
-                                r'./searchPoi_'+ str(index) + '.dat')
+        # browserDriver = meituan.seleniumChromeInit()
+        # print("脚本:",sys.argv[1])
+        meituan.getSearchPois_2(r'./无标题-' + str(index) + '.txt',
+                                r'./searchPoi_' + str(index) + '.csv',
+                                r'./searchPoi_' + str(index) + '.dat')
         print("complate!")
 
         # meituan.requestsSearchPoi(r'./无标题-'+ str(index) + '.txt',
